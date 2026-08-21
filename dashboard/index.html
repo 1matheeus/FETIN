@@ -1,0 +1,1878 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AeroScan — Painel de Controle</title>
+<script>
+(function(){
+  try{
+    var saved = localStorage.getItem("aeroscan_theme");
+    var theme = saved || ((window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  }catch(e){}
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+<style>
+  :root{
+    --ink:#14181c;
+    --ink-soft:#2a3138;
+    --bg:#f5f6f8;
+    --surface:#ffffff;
+    --surface-2:#fafbfc;
+    --border:#e6e9ec;
+    --text:#1a1f24;
+    --text-muted:#67707a;
+    --text-faint:#9aa2ab;
+    --accent:#3b5bdb;
+    --accent-ink:#2a41a8;
+    --accent-soft:#eaeefc;
+    --alto:#e5484d;
+    --alto-soft:#fceaea;
+    --medio:#e8a23d;
+    --medio-soft:#fbf1e2;
+    --baixo:#12b76a;
+    --baixo-soft:#e6f7f0;
+    --radius-lg:22px;
+    --radius-md:16px;
+    --radius-sm:10px;
+    --shadow-sm:0 1px 2px rgba(16,24,40,.05);
+    --shadow-md:0 6px 20px rgba(16,24,40,.06);
+    --shadow-lg:0 16px 40px rgba(16,24,40,.10);
+  }
+  :root[data-theme="dark"]{
+    --bg:#20242a;
+    --surface:#282d34;
+    --surface-2:#2f343c;
+    --border:#3d434c;
+    --text:#e6e8eb;
+    --text-muted:#a3aab3;
+    --text-faint:#7d848d;
+    --accent-soft:rgba(59,91,219,.24);
+    --alto-soft:rgba(229,72,77,.20);
+    --medio-soft:rgba(232,162,61,.20);
+    --baixo-soft:rgba(18,183,106,.20);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.2);
+    --shadow-md:0 6px 20px rgba(0,0,0,.24);
+    --shadow-lg:0 16px 40px rgba(0,0,0,.32);
+  }
+  :root[data-theme="dark"] .stat-icon.medio,
+  :root[data-theme="dark"] .case-status-icon.suspeito{color:#f0b94d;}
+  :root[data-theme="dark"] .legend-box,
+  :root[data-theme="dark"] .map-title{background:rgba(40,45,52,.95);}
+  :root[data-theme="dark"] .leaflet-popup-content-wrapper,
+  :root[data-theme="dark"] .leaflet-popup-tip{background:var(--surface);color:var(--text);}
+  :root[data-theme="dark"] .leaflet-control-layers,
+  :root[data-theme="dark"] .leaflet-bar a{
+    background:var(--surface);color:var(--text);border-color:var(--border);
+  }
+  :root[data-theme="dark"] .leaflet-bar a:hover{background:var(--surface-2);}
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    font-family:"Inter","Segoe UI",Roboto,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3{font-family:inherit;}
+  svg.ic{display:block;flex-shrink:0;}
+
+  /* ---------- LOGIN ---------- */
+  #login-screen{
+    position:fixed;inset:0;
+    display:flex;align-items:center;justify-content:center;
+    background:
+      radial-gradient(1100px 600px at 15% 15%, rgba(59,91,219,.35), transparent 60%),
+      radial-gradient(900px 500px at 85% 85%, rgba(59,91,219,.20), transparent 55%),
+      var(--ink);
+    z-index:999;
+  }
+  .login-card{
+    background:var(--surface);border-radius:var(--radius-lg);
+    padding:40px 36px 32px;
+    width:352px;
+    box-shadow:0 30px 80px rgba(0,0,0,.45);
+    text-align:left;
+  }
+  .login-badge{
+    width:46px;height:46px;border-radius:14px;
+    background:linear-gradient(135deg,var(--accent),var(--accent-ink));
+    display:flex;align-items:center;justify-content:center;margin-bottom:18px;
+    box-shadow:0 8px 20px rgba(59,91,219,.35);
+  }
+  .login-badge svg{color:#fff;width:24px;height:24px;}
+  .login-card h1{font-size:19px;margin:0 0 3px;letter-spacing:-.01em;}
+  .login-card p.subtitle{font-size:12.5px;color:var(--text-muted);margin:0 0 24px;line-height:1.5;}
+  .login-card label{display:block;text-align:left;font-size:11.5px;font-weight:600;color:var(--text-muted);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.04em;}
+  .login-card input{
+    width:100%;padding:11px 13px;border:1.5px solid var(--border);
+    border-radius:var(--radius-sm);font-size:14px;outline:none;transition:border .15s,box-shadow .15s;
+    font-family:inherit;background:var(--surface-2);
+  }
+  .login-card input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);background:#fff;}
+  .login-card button{
+    width:100%;margin-top:24px;padding:12px;border:none;border-radius:var(--radius-sm);
+    background:var(--ink);color:#fff;font-size:14px;font-weight:600;
+    cursor:pointer;transition:background .15s;font-family:inherit;
+  }
+  .login-card button:hover{background:var(--accent-ink);}
+  .login-error{
+    margin-top:12px;font-size:12.5px;color:var(--alto);font-weight:600;
+    min-height:16px;
+  }
+  .login-hint{margin-top:18px;font-size:11px;color:var(--text-faint);line-height:1.6;padding-top:14px;border-top:1px solid var(--border);}
+  .login-hint b{color:var(--text-muted);}
+  .shake{animation:shake .38s;}
+  @keyframes shake{
+    10%,90%{transform:translateX(-1px);}
+    20%,80%{transform:translateX(2px);}
+    30%,50%,70%{transform:translateX(-5px);}
+    40%,60%{transform:translateX(5px);}
+  }
+
+  /* ---------- APP SHELL ---------- */
+  #app{display:none;}
+  #app.visible{display:block;}
+
+  .topnav{
+    position:sticky;top:0;z-index:600;
+    background:var(--ink);color:#fff;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 28px;height:64px;
+  }
+  .topnav .brand{display:flex;align-items:center;gap:11px;}
+  .brand-badge{
+    width:34px;height:34px;border-radius:10px;
+    background:linear-gradient(135deg,var(--accent),var(--accent-ink));
+    display:flex;align-items:center;justify-content:center;
+  }
+  .brand-badge svg{color:#fff;width:19px;height:19px;}
+  .topnav .brand-text b{font-size:14.5px;font-weight:700;letter-spacing:-.01em;display:block;}
+  .topnav .brand-text span{font-size:10.5px;color:#9aa4b2;}
+
+  .nav-links{display:flex;gap:2px;}
+  .nav-link{
+    color:#b7bfc9;text-decoration:none;font-size:13px;font-weight:500;
+    padding:9px 16px;border-radius:999px;transition:.15s;
+  }
+  .nav-link:hover{color:#fff;background:rgba(255,255,255,.06);}
+  .nav-link.active{color:#fff;background:rgba(255,255,255,.10);}
+
+  .nav-toggle{
+    display:none;background:transparent;border:1px solid rgba(255,255,255,.18);color:#dfe3e8;
+    width:36px;height:36px;border-radius:var(--radius-sm);cursor:pointer;
+    align-items:center;justify-content:center;transition:.15s;
+  }
+  .nav-toggle:hover{background:rgba(255,255,255,.08);}
+  .nav-toggle svg{width:18px;height:18px;}
+
+  .nav-user{display:flex;align-items:center;gap:10px;}
+  .avatar{
+    width:30px;height:30px;border-radius:50%;background:var(--accent);
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;color:#fff;
+  }
+  .nav-user span{font-size:13px;color:#e4e7eb;margin-right:2px;}
+  .btn-icon{
+    background:transparent;border:1px solid rgba(255,255,255,.18);color:#dfe3e8;
+    padding:8px 10px;border-radius:var(--radius-sm);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:.15s;
+  }
+  .btn-icon:hover{background:rgba(255,255,255,.08);}
+  .btn-icon svg{width:16px;height:16px;}
+
+  /* ---------- SECTIONS (shared) ---------- */
+  .section{padding:64px 32px;max-width:1180px;margin:0 auto;scroll-margin-top:64px;}
+  .section-head{margin-bottom:30px;}
+  .eyebrow{
+    font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;
+    letter-spacing:.08em;margin:0 0 8px;
+  }
+  .section h2{font-size:24px;margin:0 0 6px;letter-spacing:-.02em;}
+  .section-sub{font-size:14px;color:var(--text-muted);margin:0;max-width:560px;line-height:1.55;}
+  .section-head-row{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;}
+  .section-head-row .section-head{margin-bottom:0;}
+
+  .btn-primary{
+    display:inline-flex;align-items:center;gap:7px;flex-shrink:0;
+    background:var(--ink);color:#fff;border:none;padding:11px 18px;
+    border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;
+    font-family:inherit;transition:background .15s,transform .15s;
+  }
+  .btn-primary:hover{background:var(--accent-ink);}
+  .btn-primary:active{transform:scale(.97);}
+  .btn-primary svg{width:15px;height:15px;}
+  .btn-primary-nav{background:var(--accent);padding:9px 15px;}
+  .btn-primary-nav:hover{background:var(--accent-ink);}
+
+  /* ---------- MODAL ---------- */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(8,10,12,.6);z-index:1000;
+    display:none;align-items:center;justify-content:center;padding:20px;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal-card{
+    background:var(--surface);border-radius:var(--radius-lg);padding:28px 26px 26px;
+    width:420px;max-width:100%;box-shadow:var(--shadow-lg);
+    max-height:90vh;overflow-y:auto;
+  }
+  .modal-head{display:flex;align-items:center;justify-content:space-between;}
+  .modal-head h3{font-size:17px;margin:0;letter-spacing:-.01em;}
+  .modal-close{
+    background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);
+    width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    cursor:pointer;transition:.15s;flex-shrink:0;
+  }
+  .modal-close:hover{color:var(--text);border-color:var(--accent);}
+  .modal-close svg{width:14px;height:14px;}
+  .modal-sub{font-size:12.5px;color:var(--text-muted);margin:6px 0 18px;line-height:1.5;}
+  .field label{display:block;font-size:11.5px;font-weight:600;color:var(--text-muted);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.04em;}
+  .field input, .field select{
+    width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);
+    font-size:13.5px;outline:none;font-family:inherit;background:var(--surface-2);color:var(--text);
+    transition:border .15s,box-shadow .15s;
+  }
+  .field input:focus, .field select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .field input[type=file]{padding:8px;font-size:12.5px;cursor:pointer;}
+  .photo-preview{display:none;align-items:center;gap:10px;margin-top:10px;}
+  .photo-preview.show{display:flex;}
+  .photo-preview img{width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--border);}
+  .photo-preview button{
+    background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);
+    font-size:11.5px;font-weight:600;padding:6px 10px;border-radius:8px;cursor:pointer;font-family:inherit;
+  }
+  .photo-preview button:hover{color:var(--alto);border-color:var(--alto);}
+  .modal-submit{
+    width:100%;margin-top:22px;padding:12px;border:none;border-radius:var(--radius-sm);
+    background:var(--ink);color:#fff;font-size:14px;font-weight:600;cursor:pointer;
+    transition:background .15s;font-family:inherit;
+  }
+  .modal-submit:hover{background:var(--accent-ink);}
+
+  /* ---------- HERO ---------- */
+  .hero{
+    background:var(--ink);color:#fff;padding:0;
+  }
+  .hero-inner{max-width:1180px;margin:0 auto;padding:88px 32px 72px;}
+  .hero .eyebrow{color:#8fa2f5;}
+  .hero h1{font-size:42px;margin:0 0 16px;letter-spacing:-.03em;font-weight:800;}
+  .hero p{font-size:15.5px;color:#b7bfc9;max-width:640px;line-height:1.7;margin:0 0 30px;}
+  .hero-meta{display:flex;gap:34px;flex-wrap:wrap;padding-top:26px;border-top:1px solid rgba(255,255,255,.12);}
+  .hero-meta div b{display:block;font-size:20px;font-weight:700;}
+  .hero-meta div span{font-size:11.5px;color:#8b93a0;}
+
+  /* ---------- STATS GRID ---------- */
+  .stats-grid{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:16px;
+  }
+  .stat-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);
+    padding:20px;box-shadow:var(--shadow-sm);transition:box-shadow .15s,transform .15s;
+  }
+  .stat-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px);}
+  .stat-card.wide{grid-column:span 2;}
+  .stat-icon{
+    width:36px;height:36px;border-radius:10px;background:var(--accent-soft);color:var(--accent-ink);
+    display:flex;align-items:center;justify-content:center;margin-bottom:14px;
+  }
+  .stat-icon svg{width:18px;height:18px;}
+  .stat-icon.alto{background:var(--alto-soft);color:var(--alto);}
+  .stat-icon.medio{background:var(--medio-soft);color:#a06913;}
+  .stat-icon.baixo{background:var(--baixo-soft);color:var(--baixo);}
+  .stat-value{font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1.1;}
+  .stat-label{font-size:12.5px;color:var(--text-muted);margin-top:5px;font-weight:500;}
+  .stat-sub{font-size:11.5px;color:var(--text-faint);margin-top:2px;}
+
+  .stat-card.wide .stat-head{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+  .stat-card.wide .stat-head .stat-icon{margin-bottom:0;}
+  .stat-card.wide .stat-head .stat-label{margin-top:1px;}
+  .stat-card.wide .stat-head .stat-value{font-size:19px;}
+
+  .compare-row{display:flex;align-items:center;gap:10px;margin-top:9px;font-size:12px;}
+  .compare-row .compare-label{width:64px;color:var(--text-muted);font-weight:500;flex-shrink:0;}
+  .compare-row .bar-outer{flex:1;height:8px;background:var(--surface-2);border-radius:6px;overflow:hidden;border:1px solid var(--border);}
+  .compare-row .bar-inner{height:100%;border-radius:6px;background:var(--accent);}
+  .compare-row .bar-inner.alt{background:#8fa2f5;}
+  .compare-row .compare-num{width:20px;text-align:right;font-weight:700;color:var(--text);flex-shrink:0;}
+
+  /* ---------- MAP SECTION ---------- */
+  .map-card{
+    position:relative;border-radius:var(--radius-lg);overflow:hidden;
+    border:1px solid var(--border);box-shadow:var(--shadow-md);
+    height:600px;
+  }
+  #map{height:100%;width:100%;}
+
+  .legend-box{
+    position:absolute;bottom:16px;left:16px;z-index:500;
+    background:rgba(255,255,255,.97);border-radius:var(--radius-md);padding:16px 18px;
+    box-shadow:var(--shadow-lg);border:1px solid var(--border);
+    font-size:12px;max-width:220px;line-height:1.6;
+  }
+  .legend-box .legend-title{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 10px;}
+  .legend-box .legend-title:not(:first-child){margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
+  .legend-row{display:flex;align-items:center;gap:8px;margin-top:6px;color:var(--text);}
+  .legend-row svg{width:14px;height:14px;color:var(--text-muted);flex-shrink:0;}
+  .swatch{display:inline-block;width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+  .swatch.dot{border-radius:50%;}
+
+  .map-title{
+    position:absolute;top:16px;left:16px;z-index:500;
+    background:rgba(255,255,255,.97);padding:10px 18px;border-radius:var(--radius-md);
+    box-shadow:var(--shadow-lg);border:1px solid var(--border);
+  }
+  .map-title b{font-size:14px;display:block;letter-spacing:-.01em;}
+  .map-title span{font-size:11px;color:var(--text-muted);}
+
+  /* popup styling */
+  .popup-card{min-width:210px;}
+  .popup-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .popup-head svg{width:15px;height:15px;color:var(--text-muted);}
+  .popup-head h4{margin:0;font-size:13.5px;font-weight:700;}
+  .popup-card table{font-size:12.5px;border-collapse:collapse;width:100%;}
+  .popup-card table td{padding:3px 0;}
+  .popup-card table td:first-child{color:var(--text-muted);padding-right:12px;white-space:nowrap;}
+  .nivel-pill{
+    display:inline-block;padding:2px 9px;border-radius:20px;color:#fff;font-weight:700;font-size:10.5px;
+    letter-spacing:.02em;
+  }
+  .status-pill{
+    padding:2px 9px;border-radius:20px;font-size:10.5px;font-weight:700;color:#fff;
+    display:inline-block;letter-spacing:.02em;
+  }
+  .status-confirmado{background:var(--alto);}
+  .status-suspeito{background:var(--medio);}
+  .status-investigacao{background:var(--accent);}
+  .status-descartado{background:#8a929c;}
+  .score-bar-outer{background:var(--surface-2);border-radius:6px;height:7px;width:100%;margin-top:8px;overflow:hidden;border:1px solid var(--border);}
+  .score-bar-inner{height:100%;border-radius:6px;}
+  .leaflet-popup-content-wrapper{border-radius:14px;}
+
+  /* ---------- CASES SECTION ---------- */
+  .cases-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:20px;}
+  .search-box{
+    position:relative;flex:1;min-width:220px;
+  }
+  .search-box svg{
+    position:absolute;left:13px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--text-faint);
+  }
+  .search-box input{
+    width:100%;padding:10px 14px 10px 36px;border:1.5px solid var(--border);
+    border-radius:999px;font-size:13px;outline:none;font-family:inherit;
+    background:var(--surface);transition:border .15s,box-shadow .15s;
+  }
+  .search-box input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .chip-group{display:flex;gap:6px;flex-wrap:wrap;}
+  .chip{
+    padding:8px 15px;border-radius:999px;border:1.5px solid var(--border);background:var(--surface);
+    font-size:12.5px;font-weight:500;color:var(--text-muted);cursor:pointer;transition:.15s;font-family:inherit;
+  }
+  .chip:hover{border-color:var(--accent);color:var(--accent-ink);}
+  .chip.active{background:var(--ink);border-color:var(--ink);color:#fff;}
+
+  .cases-list{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);
+    box-shadow:var(--shadow-sm);overflow:hidden;
+  }
+  .case-row{
+    display:flex;align-items:center;gap:14px;padding:15px 20px;
+    border-bottom:1px solid var(--border);transition:background .12s;
+  }
+  .case-row:last-child{border-bottom:none;}
+  .case-row:hover{background:var(--surface-2);}
+  .case-status-icon{
+    width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .case-status-icon svg{width:16px;height:16px;}
+  .case-status-icon.confirmado{background:var(--alto-soft);color:var(--alto);}
+  .case-status-icon.suspeito{background:var(--medio-soft);color:#a06913;}
+  .case-status-icon.investigacao{background:var(--accent-soft);color:var(--accent-ink);}
+  .case-status-icon.descartado{background:var(--surface-2);color:var(--text-faint);}
+  .case-main{flex:1;min-width:0;}
+  .case-address{font-size:13.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .case-meta{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text-muted);margin-top:3px;}
+  .tag{
+    background:var(--surface-2);border:1px solid var(--border);padding:1.5px 8px;border-radius:6px;
+    font-size:11px;font-weight:500;color:var(--text-muted);
+  }
+  .case-right{display:flex;align-items:center;gap:12px;flex-shrink:0;}
+  .case-id{font-size:11.5px;color:var(--text-faint);font-weight:600;font-family:ui-monospace,Consolas,monospace;}
+  .empty-state{padding:48px 20px;text-align:center;color:var(--text-faint);font-size:13px;}
+  .case-thumb{
+    width:34px;height:34px;border-radius:8px;object-fit:cover;flex-shrink:0;
+    border:1px solid var(--border);cursor:pointer;
+  }
+  .case-actions{display:flex;gap:4px;flex-shrink:0;}
+  .icon-btn{
+    background:transparent;border:none;color:var(--text-faint);width:28px;height:28px;
+    border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s;
+  }
+  .icon-btn:hover{background:var(--surface-2);color:var(--text);}
+  .icon-btn.danger:hover{background:var(--alto-soft);color:var(--alto);}
+  .icon-btn svg{width:14px;height:14px;}
+  .toolbar-btn{
+    display:inline-flex;align-items:center;gap:6px;
+    background:var(--surface);border:1.5px solid var(--border);color:var(--text-muted);
+    padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:500;cursor:pointer;
+    font-family:inherit;transition:.15s;flex-shrink:0;
+  }
+  .toolbar-btn:hover{border-color:var(--accent);color:var(--accent-ink);}
+  .toolbar-btn svg{width:14px;height:14px;}
+
+  /* ---------- MAP CONTROLS ---------- */
+  .map-controls{
+    display:flex;gap:14px;flex-wrap:wrap;align-items:center;justify-content:space-between;
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);
+    padding:14px 18px;margin-bottom:16px;box-shadow:var(--shadow-sm);
+  }
+  .segmented{display:flex;gap:3px;background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:3px;}
+  .segmented button{
+    border:none;background:transparent;padding:7px 14px;border-radius:999px;font-size:12px;font-weight:600;
+    color:var(--text-muted);cursor:pointer;transition:.15s;font-family:inherit;white-space:nowrap;
+  }
+  .segmented button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm);}
+  .period-control{display:flex;align-items:center;gap:10px;flex:1;min-width:220px;}
+  .period-control input[type=range]{flex:1;accent-color:var(--accent);}
+  .period-label{font-size:12px;color:var(--text-muted);white-space:nowrap;font-weight:600;min-width:82px;}
+  .period-reset{
+    background:none;border:none;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;
+    font-family:inherit;padding:4px;white-space:nowrap;
+  }
+  .period-reset:hover{text-decoration:underline;}
+
+  /* ---------- LIGHTBOX ---------- */
+  .lightbox-overlay{
+    position:fixed;inset:0;background:rgba(6,8,10,.85);z-index:1100;
+    display:none;align-items:center;justify-content:center;padding:30px;
+  }
+  .lightbox-overlay.open{display:flex;}
+  .lightbox-card{max-width:min(720px,92vw);max-height:88vh;text-align:center;}
+  .lightbox-card img{max-width:100%;max-height:72vh;border-radius:var(--radius-md);box-shadow:var(--shadow-lg);}
+  .lightbox-caption{color:#e6e8eb;font-size:13px;margin-top:14px;}
+  .lightbox-close{
+    position:absolute;top:22px;right:26px;background:rgba(255,255,255,.12);border:none;color:#fff;
+    width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  }
+  .lightbox-close:hover{background:rgba(255,255,255,.22);}
+  .popup-image-link{
+    display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);
+    font-size:12px;font-weight:600;color:var(--accent-ink);cursor:pointer;
+  }
+  .popup-image-link img{width:36px;height:36px;object-fit:cover;border-radius:7px;border:1px solid var(--border);}
+  .popup-image-link:hover{text-decoration:underline;}
+
+  /* ---------- CHARTS ---------- */
+  .chart-card{grid-column:1 / -1;}
+  .timeline-chart{width:100%;height:auto;overflow:visible;}
+  .timeline-chart .bar-confirmado{fill:var(--alto);}
+  .timeline-chart .bar-suspeito{fill:var(--medio);}
+  .timeline-chart .bar-investigacao{fill:var(--accent);}
+  .timeline-chart .bar-descartado{fill:#8a929c;}
+  .timeline-chart .axis-label{fill:var(--text-faint);font-size:9px;font-family:"Inter",sans-serif;}
+  .chart-legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:11.5px;color:var(--text-muted);}
+  .chart-legend span{display:inline-flex;align-items:center;gap:6px;}
+
+  .rank-row{display:flex;align-items:center;gap:12px;margin-top:12px;}
+  .rank-row:first-child{margin-top:0;}
+  .rank-name{width:120px;flex-shrink:0;font-size:12.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rank-bar-outer{flex:1;height:10px;background:var(--surface-2);border-radius:6px;overflow:hidden;border:1px solid var(--border);}
+  .rank-bar-inner{height:100%;border-radius:6px;}
+  .rank-score{width:42px;text-align:right;font-size:12px;font-weight:700;color:var(--text);flex-shrink:0;}
+
+  .trend-badge{
+    display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;
+    padding:2px 9px;border-radius:999px;margin-left:8px;
+  }
+  .trend-badge.up{background:var(--alto-soft);color:var(--alto);}
+  .trend-badge.down{background:var(--baixo-soft);color:var(--baixo);}
+  .trend-badge.flat{background:var(--surface-2);color:var(--text-muted);}
+  .trend-badge svg{width:12px;height:12px;}
+
+  /* ---------- SOBRE ---------- */
+  .sobre-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:20px;}
+  .sobre-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);
+    padding:24px;box-shadow:var(--shadow-sm);
+  }
+  .sobre-card h3{font-size:15px;margin:0 0 12px;letter-spacing:-.01em;}
+  .sobre-card p{font-size:13px;color:var(--text-muted);line-height:1.7;margin:0 0 10px;}
+  .metric-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid var(--border);font-size:13px;}
+  .metric-row:first-of-type{border-top:none;}
+  .metric-row b{font-size:15px;}
+  .team-row{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:13px;}
+  .team-row .avatar{width:26px;height:26px;font-size:11px;}
+  .tech-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+
+  @media (max-width:860px){ .sobre-grid{grid-template-columns:1fr;} }
+
+  footer{
+    padding:32px;text-align:center;font-size:12px;color:var(--text-faint);
+    border-top:1px solid var(--border);
+  }
+
+  /* ---------- IMPRESSÃO / EXPORTAR RELATÓRIO ---------- */
+  @media print{
+    :root, :root[data-theme="dark"]{
+      --bg:#fff;--surface:#fff;--surface-2:#f7f8f9;--border:#ddd;--text:#111;--text-muted:#555;--text-faint:#888;
+    }
+    body{background:#fff;}
+    .topnav, .hero-meta, .btn-primary, .btn-icon, .nav-toggle, .cases-toolbar, .map-controls,
+    .case-actions, .modal-overlay, .lightbox-overlay, footer, .leaflet-control-layers, .leaflet-control-zoom{
+      display:none !important;
+    }
+    .hero{background:#fff;color:#111;padding:20px 0;}
+    .hero p, .hero-meta div span{color:#444;}
+    .section{padding:16px 0;}
+    .map-card{height:380px;box-shadow:none;}
+    .stat-card, .sobre-card, .cases-list{box-shadow:none;break-inside:avoid;}
+  }
+
+  @media (max-width:860px){
+    .stats-grid{grid-template-columns:repeat(2,1fr);}
+    .stat-card.wide{grid-column:span 2;}
+    .nav-toggle{display:flex;}
+    .nav-links{
+      display:none;position:absolute;top:64px;left:0;right:0;z-index:601;
+      background:var(--ink);flex-direction:column;gap:2px;padding:8px;
+      border-top:1px solid rgba(255,255,255,.08);box-shadow:var(--shadow-lg);
+    }
+    .nav-links.open{display:flex;}
+    .nav-link{padding:12px 16px;border-radius:10px;}
+    .hero h1{font-size:32px;}
+    .map-card{height:460px;}
+    .section-head-row{align-items:flex-start;}
+    .btn-primary-nav .btn-primary-label{display:none;}
+    .btn-primary-nav{padding:9px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="login-screen">
+  <form class="login-card" id="login-form" autocomplete="off">
+    <div class="login-badge" id="login-icon"></div>
+    <h1>AeroScan</h1>
+    <p class="subtitle">Painel de controle — detecção de focos de dengue por drone e IA.</p>
+
+    <label for="usr">Usuário</label>
+    <input id="usr" type="text" placeholder="Usuário" required>
+
+    <label for="pwd">Senha</label>
+    <input id="pwd" type="password" placeholder="Senha" required>
+
+    <button type="submit">Entrar</button>
+    <div class="login-error" id="login-error"></div>
+    <div class="login-hint">Acesso de demonstração — usuário <b>Admin</b>, senha <b>admin123</b>.</div>
+  </form>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app">
+  <nav class="topnav">
+    <div class="brand">
+      <div class="brand-badge" id="brand-icon"></div>
+      <div class="brand-text">
+        <b>AeroScan</b>
+        <span>Equipe 49 · FETIN 2026</span>
+      </div>
+    </div>
+    <div class="nav-links" id="nav-links">
+      <a class="nav-link" href="#visao-geral" data-nav="visao-geral">Visão geral</a>
+      <a class="nav-link" href="#mapa" data-nav="mapa">Mapa de risco</a>
+      <a class="nav-link" href="#casos" data-nav="casos">Casos notificados</a>
+      <a class="nav-link" href="#sobre" data-nav="sobre">Sobre o projeto</a>
+    </div>
+    <div class="nav-user">
+      <button class="btn-primary btn-primary-nav" id="btn-novo-caso"><span id="novo-caso-icon"></span><span class="btn-primary-label">Novo caso</span></button>
+      <button class="nav-toggle" id="nav-toggle" title="Menu" aria-label="Abrir menu"></button>
+      <div class="avatar">A</div>
+      <span>Admin</span>
+      <button class="btn-icon" id="btn-theme" title="Alternar tema" aria-label="Alternar tema"></button>
+      <button class="btn-icon" id="btn-logout" title="Sair" aria-label="Sair"></button>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero" id="inicio">
+    <div class="hero-inner">
+      <p class="eyebrow">Santa Rita do Sapucaí · MVP</p>
+      <h1>Monitoramento de focos de dengue com drone e visão computacional</h1>
+      <p>O AeroScan combina sobrevoos de drone com um modelo de visão computacional (YOLOv8) treinado para
+        reconhecer piscinas e pneus abandonados — dois dos principais criadouros do mosquito <i>Aedes aegypti</i>.
+        As detecções da IA são cruzadas com os casos de dengue notificados pelo hospital local, gerando um mapa de
+        prioridade que ajuda as equipes de saúde a decidir por onde começar a vistoria.</p>
+      <div class="hero-meta" id="hero-meta"></div>
+    </div>
+  </section>
+
+  <!-- VISÃO GERAL -->
+  <section class="section" id="visao-geral">
+    <div class="section-head-row">
+      <div class="section-head">
+        <p class="eyebrow">Visão geral</p>
+        <h2>Panorama da cidade</h2>
+        <p class="section-sub">Indicadores consolidados a partir dos casos notificados e dos focos identificados pelo drone.</p>
+      </div>
+      <button class="toolbar-btn" id="btn-exportar-relatorio"><span id="export-report-icon"></span>Exportar relatório</button>
+    </div>
+    <div class="stats-grid" id="stats-grid"></div>
+  </section>
+
+  <!-- MAPA -->
+  <section class="section" id="mapa">
+    <div class="section-head">
+      <p class="eyebrow">Mapa de risco</p>
+      <h2>Zonas de calor por bairro</h2>
+      <p class="section-sub">Casos, focos detectados e prioridade de varredura do drone. Clique em um bairro para ver os detalhes.</p>
+    </div>
+    <div class="map-controls">
+      <div class="segmented" id="modo-visualizacao">
+        <button class="active" data-modo="pins">Pins agrupados</button>
+        <button data-modo="calor-todos">Calor (todos os casos)</button>
+        <button data-modo="calor-bairro">Calor por bairro</button>
+      </div>
+      <div class="period-control">
+        <span class="period-label" id="period-label">Todo o período</span>
+        <input type="range" id="period-slider" min="0" max="0" value="0" step="1">
+        <button class="period-reset" id="period-reset">Redefinir</button>
+      </div>
+    </div>
+    <div class="map-card">
+      <div id="map"></div>
+      <div class="map-title"><b>Santa Rita do Sapucaí</b><span>Atualizado com a base de dados do MVP</span></div>
+      <div class="legend-box" id="legend-box"></div>
+    </div>
+  </section>
+
+  <!-- CASOS -->
+  <section class="section" id="casos">
+    <div class="section-head">
+      <p class="eyebrow">Casos notificados</p>
+      <h2>Registros do hospital local</h2>
+      <p class="section-sub">Lista de todos os casos de dengue encaminhados para a base do AeroScan.</p>
+    </div>
+    <div class="cases-toolbar">
+      <div class="search-box">
+        <span id="search-icon"></span>
+        <input type="text" id="f-busca" placeholder="Buscar por rua, ID ou bairro...">
+      </div>
+      <div class="chip-group" id="f-status"></div>
+      <div class="chip-group" id="f-bairro"></div>
+      <button class="toolbar-btn" id="btn-exportar-csv"><span id="export-csv-icon"></span>Exportar CSV</button>
+    </div>
+    <div class="cases-list" id="cases-list"></div>
+  </section>
+
+  <!-- SOBRE O PROJETO -->
+  <section class="section" id="sobre">
+    <div class="section-head">
+      <p class="eyebrow">Sobre o projeto</p>
+      <h2>AeroScan — Equipe 49</h2>
+      <p class="section-sub">Metodologia, equipe e métricas do modelo de visão computacional por trás do painel.</p>
+    </div>
+    <div class="sobre-grid">
+      <div class="sobre-card">
+        <h3>Como funciona</h3>
+        <p>Um drone sobrevoa as áreas de risco priorizadas e captura imagens aéreas. Um modelo YOLOv8, treinado
+          especificamente para reconhecer piscinas e pneus abandonados, processa essas imagens e marca cada
+          detecção com sua localização e nível de confiança.</p>
+        <p>As detecções da IA são cruzadas com os casos de dengue notificados pelo hospital local. O cruzamento
+          gera um score de risco por bairro (1 a 10), que define a prioridade de varredura do drone — quanto
+          mais casos e focos numa região, mais cedo ela deve ser revisitada.</p>
+        <p>Este painel é a camada de visualização desse fluxo: mapa de calor por bairro, cadastro de novos casos
+          e acompanhamento da evolução no tempo, para apoiar a tomada de decisão das equipes de saúde.</p>
+        <div class="tech-tags" id="tech-tags"></div>
+      </div>
+      <div class="sobre-card">
+        <h3>Métricas do modelo (YOLOv8)</h3>
+        <div class="metric-row"><span>mAP@50</span><b>95.6%</b></div>
+        <div class="metric-row"><span>Precision</span><b>91.2%</b></div>
+        <div class="metric-row"><span>Recall</span><b>92.3%</b></div>
+        <div class="metric-row"><span>mAP@50-95</span><b>64.8%</b></div>
+        <div class="metric-row"><span>Imagens de treino</span><b>6.749</b></div>
+        <div class="metric-row"><span>Épocas</span><b>50</b></div>
+        <div class="metric-row"><span>Classes detectadas</span><b>pool, tire</b></div>
+      </div>
+      <div class="sobre-card">
+        <h3>Equipe</h3>
+        <div id="team-list"></div>
+      </div>
+      <div class="sobre-card">
+        <h3>Fontes de dados</h3>
+        <div class="metric-row"><span>pool-images / pool-detection</span><span class="tag">pool</span></div>
+        <div class="metric-row"><span>swimming-pools-detection</span><span class="tag">pool</span></div>
+        <div class="metric-row"><span>piscina-piloto</span><span class="tag">pool</span></div>
+        <div class="metric-row"><span>king-mongkut tire-x4hgu</span><span class="tag">tire</span></div>
+        <div class="metric-row"><span>testwheel / wheeltester</span><span class="tag">tire</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- LIGHTBOX — imagens de foco / casos -->
+  <div class="lightbox-overlay" id="lightbox-overlay">
+    <button class="lightbox-close" id="lightbox-close" aria-label="Fechar"></button>
+    <div class="lightbox-card">
+      <img id="lightbox-img" src="" alt="">
+      <div class="lightbox-caption" id="lightbox-caption"></div>
+    </div>
+  </div>
+
+  <footer>AeroScan — Projeto FETIN 2026 · Equipe 49 · Dados simulados para fins de demonstração</footer>
+
+  <!-- MODAL — NOVO / EDITAR CASO -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="modal-titulo">Cadastrar novo caso</h3>
+        <button class="modal-close" id="modal-close" aria-label="Fechar"></button>
+      </div>
+      <p class="modal-sub" id="modal-sub">O caso é adicionado à lista, ao mapa e às estatísticas desta sessão.</p>
+      <form id="form-novo-caso">
+        <div class="field">
+          <label for="nc-endereco">Endereço / rua</label>
+          <input id="nc-endereco" type="text" placeholder="Ex.: Rua das Palmeiras, próximo ao número 45" required>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="nc-bairro">Bairro</label>
+            <select id="nc-bairro" required></select>
+          </div>
+          <div class="field">
+            <label for="nc-data">Data</label>
+            <input id="nc-data" type="date" required>
+          </div>
+        </div>
+        <div class="field">
+          <label>Status</label>
+          <div class="chip-group" id="nc-status">
+            <button type="button" class="chip active" data-status="suspeito">Suspeito</button>
+            <button type="button" class="chip" data-status="confirmado">Confirmado</button>
+            <button type="button" class="chip" data-status="investigacao">Em investigação</button>
+            <button type="button" class="chip" data-status="descartado">Descartado</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="nc-foto">Foto do local (opcional)</label>
+          <input id="nc-foto" type="file" accept="image/*">
+          <div class="photo-preview" id="nc-foto-preview">
+            <img id="nc-foto-img" src="" alt="Pré-visualização">
+            <button type="button" id="nc-foto-remover">Remover</button>
+          </div>
+        </div>
+        <button type="submit" class="modal-submit" id="modal-submit-btn">Cadastrar caso</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+/* =========================================================
+   ÍCONES (SVG inline, estilo outline — sem emojis)
+   ========================================================= */
+const ICON_PATHS = {
+  drone: '<circle cx="12" cy="12" r="2.3"/><circle cx="5" cy="5" r="1.6"/><circle cx="19" cy="5" r="1.6"/><circle cx="5" cy="19" r="1.6"/><circle cx="19" cy="19" r="1.6"/><line x1="6.9" y1="6.2" x2="10.2" y2="9.8"/><line x1="17.1" y1="6.2" x2="13.8" y2="9.8"/><line x1="6.9" y1="17.8" x2="10.2" y2="14.2"/><line x1="17.1" y1="17.8" x2="13.8" y2="14.2"/>',
+  grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>',
+  pin: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
+  list: '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>',
+  activity: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  alert: '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  check: '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  disc: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/>',
+  droplet: '<path d="M12 2.7s-6.2 8.1-6.2 11.7a6.2 6.2 0 0 0 12.4 0C18.2 10.8 12 2.7 12 2.7z"/>',
+  search: '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+  logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+  bars: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+  layers: '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
+  sun: '<circle cx="12" cy="12" r="4.3"/><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/><line x1="4.2" y1="4.2" x2="6" y2="6"/><line x1="18" y1="18" x2="19.8" y2="19.8"/><line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/><line x1="4.2" y1="19.8" x2="6" y2="18"/><line x1="18" y1="6" x2="19.8" y2="4.2"/>',
+  moon: '<path d="M20.2 14.6A8.5 8.5 0 1 1 9.4 3.8a6.8 6.8 0 0 0 10.8 10.8z"/>',
+  plus: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  close: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+  menu: '<line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+  edit: '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/>',
+  trash: '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  "trending-up": '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+  "trending-down": '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
+  minus: '<line x1="5" y1="12" x2="19" y2="12"/>',
+};
+function icon(name, size=18, stroke=1.9){
+  return `<svg class="ic" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round">${ICON_PATHS[name]||""}</svg>`;
+}
+
+/* =========================================================
+   DADOS (mesma base do MVP — casos_dengue_mvp.csv,
+   focos_detectados_mvp.csv, areas_risco_mvp.csv)
+   Dados simulados para fins de demonstração do projeto FETIN.
+   ========================================================= */
+
+const CASOS = [
+  {id:"CD-001", data:"2026-05-23", bairro:"Centro", endereco:"Rua Cel. José Augusto, próximo ao número 120", lat:-22.253203, lng:-45.705624, status:"confirmado"},
+  {id:"CD-002", data:"2026-05-24", bairro:"Centro", endereco:"Rua Cel. José Augusto, próximo ao número 180", lat:-22.254054, lng:-45.704941, status:"confirmado"},
+  {id:"CD-003", data:"2026-05-26", bairro:"Centro", endereco:"Praça Cônego Octávio, próximo à praça central", lat:-22.253501, lng:-45.705321, status:"confirmado"},
+  {id:"CD-004", data:"2026-05-28", bairro:"Centro", endereco:"Rua João Pessoa, próximo ao mercado", lat:-22.251528, lng:-45.702961, status:"suspeito"},
+  {id:"CD-005", data:"2026-05-30", bairro:"Centro", endereco:"Rua Cel. José Augusto, próximo ao número 240", lat:-22.251463, lng:-45.703045, status:"confirmado"},
+  {id:"CD-006", data:"2026-06-01", bairro:"Centro", endereco:"Rua Bento Gonçalves, próximo à escola", lat:-22.251644, lng:-45.702895, status:"confirmado"},
+  {id:"CD-007", data:"2026-06-03", bairro:"Centro", endereco:"Praça Cônego Octávio, próximo ao número 80", lat:-22.252911, lng:-45.705843, status:"confirmado"},
+  {id:"CD-008", data:"2026-05-25", bairro:"Jardim Santo Antônio", endereco:"Rua Rui Barbosa, próximo ao posto de saúde", lat:-22.263173, lng:-45.698471, status:"confirmado"},
+  {id:"CD-009", data:"2026-05-29", bairro:"Jardim Santo Antônio", endereco:"Rua Rui Barbosa, próximo ao campo", lat:-22.260924, lng:-45.700141, status:"suspeito"},
+  {id:"CD-010", data:"2026-06-02", bairro:"Jardim Santo Antônio", endereco:"Rua Santos Dumont, próximo ao número 210", lat:-22.262212, lng:-45.698416, status:"confirmado"},
+  {id:"CD-011", data:"2026-06-04", bairro:"Jardim Santo Antônio", endereco:"Rua Santos Dumont, próximo à associação", lat:-22.26174, lng:-45.700574, status:"confirmado"},
+  {id:"CD-012", data:"2026-05-27", bairro:"Jardim das Flores", endereco:"Rua das Acácias, próximo à quadra", lat:-22.244585, lng:-45.6986, status:"confirmado"},
+  {id:"CD-013", data:"2026-06-01", bairro:"Jardim das Flores", endereco:"Rua das Rosas, próximo ao número 50", lat:-22.246475, lng:-45.699748, status:"suspeito"},
+  {id:"CD-014", data:"2026-06-03", bairro:"Por do Sol", endereco:"Rua Por do Sol, próximo ao terminal", lat:-22.25636, lng:-45.711302, status:"confirmado"},
+  {id:"CD-015", data:"2026-06-05", bairro:"Por do Sol", endereco:"Rua Por do Sol, próximo à UBS", lat:-22.259329, lng:-45.711977, status:"suspeito"},
+];
+
+const FOCOS = [
+  {id:"FD-001", data:"2026-06-03", tipo:"pneu",    lat:-22.251423, lng:-45.706393, confianca:0.95, bairro:"Centro"},
+  {id:"FD-002", data:"2026-06-03", tipo:"piscina", lat:-22.252505, lng:-45.706608, confianca:0.91, bairro:"Centro"},
+  {id:"FD-003", data:"2026-06-04", tipo:"pneu",    lat:-22.251364, lng:-45.705662, confianca:0.88, bairro:"Centro"},
+  {id:"FD-004", data:"2026-06-04", tipo:"pneu",    lat:-22.262898, lng:-45.700844, confianca:0.84, bairro:"Jardim Santo Antônio"},
+  {id:"FD-005", data:"2026-06-05", tipo:"piscina", lat:-22.245089, lng:-45.700821, confianca:0.79, bairro:"Jardim das Flores"},
+];
+
+// Contorno real de cada bairro, traçado a partir da malha de ruas do OpenStreetMap
+// (consulta Overpass API + envoltória côncava sobre os pontos das vias em cada área).
+// Centro, Jardim Santo Antônio e Por do Sol usam a localização oficial da Prefeitura
+// (fonte OSM). "Jardim das Flores" não consta como bairro oficial da cidade nas bases
+// públicas consultadas — mantido como área simulada do MVP, também traçado sobre ruas
+// reais, mas sem correspondência com um bairro oficialmente registrado.
+const BAIRRO_POLIGONOS = {
+  "Centro": [
+    [-22.251777,-45.707085],[-22.24996,-45.706762],[-22.249495,-45.70614],[-22.250807,-45.705982],[-22.250287,-45.705383],[-22.249488,-45.705118],[-22.24971,-45.704713],[-22.249019,-45.703911],[-22.249702,-45.703226],[-22.251625,-45.705247],[-22.251334,-45.706592],[-22.252548,-45.706238],[-22.253314,-45.706189],[-22.253178,-45.705538],[-22.252561,-45.705299],[-22.252608,-45.704447],[-22.252377,-45.704283],[-22.25211,-45.703748],[-22.251709,-45.703337],[-22.250544,-45.702406],[-22.250602,-45.701882],[-22.250733,-45.70163],[-22.251107,-45.701958],[-22.251832,-45.701801],[-22.252355,-45.701437],[-22.252215,-45.70195],[-22.251978,-45.702301],[-22.252337,-45.703444],[-22.252836,-45.704289],[-22.253543,-45.703777],[-22.253515,-45.702949],[-22.25297,-45.702526],[-22.253123,-45.702265],[-22.253867,-45.701973],[-22.254116,-45.702413],[-22.253704,-45.702801],[-22.254887,-45.704773],[-22.254845,-45.705334],[-22.254004,-45.705803],[-22.254171,-45.706495],[-22.253214,-45.706317],[-22.252433,-45.707639],[-22.251777,-45.707085]
+  ],
+  "Jardim Santo Antônio": [
+    [-22.261265,-45.702057],[-22.260612,-45.701504],[-22.260409,-45.700163],[-22.260548,-45.699424],[-22.260148,-45.698825],[-22.260637,-45.698152],[-22.260893,-45.697245],[-22.260815,-45.69661],[-22.261948,-45.696854],[-22.26352,-45.696021],[-22.26335,-45.697589],[-22.264432,-45.698157],[-22.265394,-45.69936],[-22.265045,-45.699027],[-22.263519,-45.699618],[-22.263605,-45.700306],[-22.263074,-45.700816],[-22.263831,-45.701699],[-22.261772,-45.702056],[-22.261265,-45.702057]
+  ],
+  "Jardim das Flores": [
+    [-22.245843,-45.702764],[-22.244318,-45.702138],[-22.244557,-45.700179],[-22.243881,-45.699306],[-22.243139,-45.699488],[-22.244531,-45.697325],[-22.244258,-45.698866],[-22.244831,-45.700385],[-22.247541,-45.698281],[-22.247619,-45.69875],[-22.248049,-45.699307],[-22.248045,-45.700077],[-22.24775,-45.700057],[-22.247425,-45.69976],[-22.244841,-45.700399],[-22.245116,-45.702048],[-22.245843,-45.702764]
+  ],
+  "Por do Sol": [
+    [-22.256647,-45.713152],[-22.25689,-45.714105],[-22.25639,-45.713058],[-22.256585,-45.711256],[-22.255865,-45.711263],[-22.255091,-45.711512],[-22.255131,-45.710746],[-22.256042,-45.710373],[-22.25596,-45.709598],[-22.256217,-45.710003],[-22.257338,-45.709971],[-22.257242,-45.709249],[-22.257651,-45.71016],[-22.258515,-45.710212],[-22.259245,-45.710747],[-22.260406,-45.711039],[-22.260761,-45.711354],[-22.260927,-45.712081],[-22.26065,-45.713091],[-22.2603,-45.713531],[-22.259551,-45.713112],[-22.258486,-45.71188],[-22.258209,-45.711698],[-22.2567,-45.711272],[-22.256488,-45.713065],[-22.256647,-45.713152]
+  ]
+};
+
+const CENTRO_MAPA = {
+  "Centro": [-22.252078,-45.704697],
+  "Jardim Santo Antônio": [-22.262254,-45.699226],
+  "Jardim das Flores": [-22.245622,-45.699861],
+  "Por do Sol": [-22.258377,-45.71141]
+};
+
+const RISK_HEX = {alto:"#e5484d", medio:"#e8a23d", baixo:"#12b76a"};
+
+// Modelo de status dos casos: além de confirmado/suspeito, permite acompanhar
+// casos em apuração ou que não se confirmaram como dengue.
+const STATUS_META = {
+  confirmado:   {label:"Confirmado",       icon:"check"},
+  suspeito:     {label:"Suspeito",         icon:"help"},
+  investigacao: {label:"Em investigação",  icon:"search"},
+  descartado:   {label:"Descartado",       icon:"close"},
+};
+const STATUS_HEX = {confirmado:"#e5484d", suspeito:"#e8a23d", investigacao:"#3b5bdb", descartado:"#8a929c"};
+
+// Imagens de exemplo do próprio dataset de treino do modelo (não são fotos reais
+// de cada foco simulado — servem para ilustrar como a detecção aparece).
+const FOCO_IMG = {piscina:"../demo_result.jpg", pneu:"../demo_result_tire.jpg"};
+
+/* =========================================================
+   CÁLCULO DE MÉTRICAS POR BAIRRO
+   Score numa escala fixa de 1 a 10, normalizado a partir de:
+     raw = casos_totais*2 + focos_detectados*3 + bonus_proximidade
+   (bonus_proximidade reflete proximidade a locais sensíveis,
+   ex.: posto de saúde, escola — mesma metodologia usada no MVP anterior)
+   O score é então normalizado linearmente entre a menor e a
+   maior pontuação bruta registrada, resultando em 1–10.
+   Faixas: 1–3 baixo · 4–6 médio · 7–10 alto
+   ========================================================= */
+const BONUS_PROXIMIDADE = { "Centro":4, "Jardim Santo Antônio":2, "Jardim das Flores":0, "Por do Sol":0 };
+
+function calcularBairros(){
+  const nomes = Object.keys(BAIRRO_POLIGONOS);
+  const raw = {};
+  nomes.forEach(nome=>{
+    const casosBairro = CASOS.filter(c=>c.bairro===nome);
+    const focosBairro = FOCOS.filter(f=>f.bairro===nome);
+    const casosTotais = casosBairro.length;
+    const confirmados14d = casosBairro.filter(c=>c.status==="confirmado").length;
+    const focosCount = focosBairro.length;
+    const bonus = BONUS_PROXIMIDADE[nome] || 0;
+    raw[nome] = {
+      nome, casosTotais, confirmados14d, focosCount, bonus,
+      rawScore: casosTotais*2 + focosCount*3 + bonus
+    };
+  });
+
+  const valores = Object.values(raw).map(r=>r.rawScore);
+  const min = Math.min(...valores), max = Math.max(...valores);
+  const range = (max - min) || 1;
+
+  Object.values(raw).forEach(r=>{
+    let score10 = Math.round(1 + 9 * (r.rawScore - min) / range);
+    score10 = Math.max(1, Math.min(10, score10));
+    let nivel, prioridade;
+    if(score10 >= 7){ nivel="alto"; prioridade="Alta"; }
+    else if(score10 >= 4){ nivel="medio"; prioridade="Média"; }
+    else { nivel="baixo"; prioridade="Baixa"; }
+    r.score = score10;
+    r.nivel = nivel;
+    r.cor = RISK_HEX[nivel];
+    r.prioridade = prioridade;
+  });
+  return raw;
+}
+let BAIRROS = calcularBairros();
+
+/* =========================================================
+   ESTATÍSTICAS AGREGADAS (para a seção "Visão geral")
+   ========================================================= */
+function calcularEstatisticas(){
+  const maxData = CASOS.reduce((m,c)=> c.data > m ? c.data : m, CASOS[0].data);
+  const limite = new Date(maxData); limite.setDate(limite.getDate() - 30);
+  const limiteISO = limite.toISOString().slice(0,10);
+  const casosUltimoMes = CASOS.filter(c=>c.data >= limiteISO).length;
+
+  const bairrosArr = Object.values(BAIRROS).sort((a,b)=>b.casosTotais-a.casosTotais);
+  const bairroTop = bairrosArr[0];
+
+  const pneus = FOCOS.filter(f=>f.tipo==="pneu").length;
+  const piscinas = FOCOS.filter(f=>f.tipo==="piscina").length;
+
+  const confirmados = CASOS.filter(c=>c.status==="confirmado").length;
+  const suspeitos = CASOS.length - confirmados;
+
+  const confiancaMedia = FOCOS.reduce((s,f)=>s+f.confianca,0) / FOCOS.length;
+
+  const zonasAlto = Object.values(BAIRROS).filter(b=>b.nivel==="alto").length;
+
+  return {
+    casosUltimoMes, bairroTop, pneus, piscinas,
+    totalFocos: FOCOS.length, confirmados, suspeitos,
+    confiancaMedia, zonasAlto, totalBairros: Object.keys(BAIRROS).length
+  };
+}
+
+function datasOrdenadas(){
+  return [...new Set(CASOS.map(c=>c.data))].sort();
+}
+
+function dadosTimeline(){
+  return datasOrdenadas().map(d=>{
+    const doDia = CASOS.filter(c=>c.data===d);
+    return {
+      data: d,
+      confirmado: doDia.filter(c=>c.status==="confirmado").length,
+      suspeito: doDia.filter(c=>c.status==="suspeito").length,
+      investigacao: doDia.filter(c=>c.status==="investigacao").length,
+      descartado: doDia.filter(c=>c.status==="descartado").length,
+      total: doDia.length,
+    };
+  });
+}
+
+function calcularComparacaoPeriodo(){
+  const datas = datasOrdenadas();
+  const iso = d=>d.toISOString().slice(0,10);
+  const fimAtual = new Date(datas[datas.length-1] + "T00:00:00");
+  const inicioAtual = new Date(fimAtual); inicioAtual.setDate(inicioAtual.getDate()-6);
+  const fimAnterior = new Date(inicioAtual); fimAnterior.setDate(fimAnterior.getDate()-1);
+  const inicioAnterior = new Date(fimAnterior); inicioAnterior.setDate(inicioAnterior.getDate()-6);
+
+  const noIntervalo = (ini,fim)=> CASOS.filter(c=>c.data>=iso(ini) && c.data<=iso(fim)).length;
+  const atual = noIntervalo(inicioAtual, fimAtual);
+  const anterior = noIntervalo(inicioAnterior, fimAnterior);
+  const delta = atual - anterior;
+  const pct = anterior===0 ? (atual>0?100:0) : Math.round((delta/anterior)*100);
+  return {atual, anterior, delta, pct};
+}
+
+/* =========================================================
+   LOGIN
+   ========================================================= */
+document.getElementById("login-icon").innerHTML = icon("drone", 24, 1.7);
+document.getElementById("brand-icon").innerHTML = icon("drone", 19, 1.8);
+document.getElementById("btn-logout").innerHTML = icon("logout", 16, 2);
+document.getElementById("search-icon").innerHTML = icon("search", 15, 1.9);
+document.getElementById("nav-toggle").innerHTML = icon("menu", 18, 2);
+document.getElementById("novo-caso-icon").innerHTML = icon("plus", 15, 2.3);
+document.getElementById("modal-close").innerHTML = icon("close", 14, 2.2);
+document.getElementById("lightbox-close").innerHTML = icon("close", 16, 2.2);
+document.getElementById("export-report-icon").innerHTML = icon("download", 14, 2);
+document.getElementById("export-csv-icon").innerHTML = icon("download", 14, 2);
+
+/* =========================================================
+   LIGHTBOX — visualização de imagens (focos e fotos de casos)
+   ========================================================= */
+function abrirLightbox(src, legenda){
+  document.getElementById("lightbox-img").src = src;
+  document.getElementById("lightbox-caption").textContent = legenda;
+  document.getElementById("lightbox-overlay").classList.add("open");
+}
+function fecharLightbox(){
+  document.getElementById("lightbox-overlay").classList.remove("open");
+}
+function abrirLightboxCaso(id){
+  const c = CASOS.find(x=>x.id===id);
+  if(c && c.foto) abrirLightbox(c.foto, `${c.id} — ${c.endereco}`);
+}
+function abrirLightboxFoco(id){
+  const f = FOCOS.find(x=>x.id===id);
+  if(f) abrirLightbox(FOCO_IMG[f.tipo], `${f.id} — exemplo de detecção de ${f.tipo} pelo modelo YOLOv8 (imagem do dataset de treino)`);
+}
+function initLightbox(){
+  document.getElementById("lightbox-close").addEventListener("click", fecharLightbox);
+  document.getElementById("lightbox-overlay").addEventListener("click", e=>{
+    if(e.target.id === "lightbox-overlay") fecharLightbox();
+  });
+  document.addEventListener("keydown", e=>{
+    if(e.key === "Escape") fecharLightbox();
+  });
+}
+
+/* =========================================================
+   TEMA (claro/escuro) — persistido em localStorage, com
+   fallback silencioso caso o storage esteja indisponível.
+   ========================================================= */
+function getTheme(){ return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light"; }
+function setTheme(theme){
+  document.documentElement.setAttribute("data-theme", theme);
+  try{ localStorage.setItem("aeroscan_theme", theme); }catch(e){}
+  document.getElementById("btn-theme").innerHTML = icon(theme === "dark" ? "sun" : "moon", 16, 2);
+}
+document.getElementById("btn-theme").innerHTML = icon(getTheme() === "dark" ? "sun" : "moon", 16, 2);
+document.getElementById("btn-theme").addEventListener("click", ()=>{
+  setTheme(getTheme() === "dark" ? "light" : "dark");
+});
+
+const loginScreen = document.getElementById("login-screen");
+const app = document.getElementById("app");
+const loginForm = document.getElementById("login-form");
+const loginError = document.getElementById("login-error");
+
+// sessionStorage pode estar indisponível em certos contextos (ex.: preview em sandbox);
+// nesse caso a sessão simplesmente não persiste entre recarregamentos.
+function authSet(){ try{ sessionStorage.setItem("aeroscan_auth","1"); }catch(e){} }
+function authClear(){ try{ sessionStorage.removeItem("aeroscan_auth"); }catch(e){} }
+function authGet(){ try{ return sessionStorage.getItem("aeroscan_auth"); }catch(e){ return null; } }
+
+function doLogin(usr, pwd){
+  if(usr === "Admin" && pwd === "admin123"){
+    authSet();
+    loginScreen.style.display = "none";
+    app.classList.add("visible");
+    initApp();
+  } else {
+    loginError.textContent = "Usuário ou senha inválidos.";
+    loginForm.classList.remove("shake");
+    void loginForm.offsetWidth;
+    loginForm.classList.add("shake");
+  }
+}
+
+loginForm.addEventListener("submit", e=>{
+  e.preventDefault();
+  loginError.textContent = "";
+  doLogin(document.getElementById("usr").value.trim(), document.getElementById("pwd").value);
+});
+
+document.getElementById("btn-logout").addEventListener("click", ()=>{
+  authClear();
+  location.reload();
+});
+
+if(authGet() === "1"){
+  loginScreen.style.display = "none";
+  app.classList.add("visible");
+  window.addEventListener("DOMContentLoaded", initApp);
+}
+
+/* =========================================================
+   NAV — clique direciona por scroll até a seção + scroll spy
+   ========================================================= */
+function initNavClicks(){
+  document.querySelectorAll(".nav-link").forEach(link=>{
+    link.addEventListener("click", e=>{
+      e.preventDefault();
+      const target = document.getElementById(link.dataset.nav);
+      document.getElementById("nav-links").classList.remove("open");
+      if(target) target.scrollIntoView({behavior:"smooth", block:"start"});
+      history.replaceState(null, "", "#"+link.dataset.nav);
+    });
+  });
+  document.getElementById("nav-toggle").addEventListener("click", ()=>{
+    document.getElementById("nav-links").classList.toggle("open");
+  });
+}
+
+function initNavSpy(){
+  const links = document.querySelectorAll(".nav-link");
+  const sections = ["visao-geral","mapa","casos","sobre"].map(id=>document.getElementById(id));
+  const obs = new IntersectionObserver(entries=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){
+        links.forEach(l=>l.classList.toggle("active", l.dataset.nav === entry.target.id));
+      }
+    });
+  }, {rootMargin:"-40% 0px -50% 0px"});
+  sections.forEach(s=>s && obs.observe(s));
+}
+
+/* =========================================================
+   INICIALIZAÇÃO DO APP
+   ========================================================= */
+let _initialized = false;
+function initApp(){
+  if(_initialized) return;
+  _initialized = true;
+  montarHeroMeta();
+  montarStats();
+  montarMapa();
+  montarLegenda();
+  montarCasos();
+  montarSobre();
+  initNavClicks();
+  initNavSpy();
+  initModalNovoCaso();
+  initLightbox();
+  initExportButtons();
+  window.addEventListener("load", ()=>{ if(window._map) window._map.invalidateSize(); });
+}
+
+function montarSobre(){
+  document.getElementById("tech-tags").innerHTML = ["YOLOv8","OpenCV","Roboflow","Folium / Leaflet","Python"]
+    .map(t=>`<span class="tag">${t}</span>`).join("");
+  document.getElementById("team-list").innerHTML = `
+    <div class="team-row"><div class="avatar">R</div><span>Rander D. Lemos — github.com/RanderDLemos</span></div>
+    <div class="team-row"><div class="avatar">?</div><span style="color:var(--text-faint)">Demais integrantes da Equipe 49 a definir</span></div>
+  `;
+}
+
+function initExportButtons(){
+  document.getElementById("btn-exportar-relatorio").addEventListener("click", ()=>window.print());
+  document.getElementById("btn-exportar-csv").addEventListener("click", exportarCSV);
+}
+
+function exportarCSV(){
+  const busca = document.getElementById("f-busca").value.toLowerCase();
+  const filtrados = CASOS.filter(c=>{
+    const matchBusca = !busca || c.endereco.toLowerCase().includes(busca) ||
+                        c.id.toLowerCase().includes(busca) || c.bairro.toLowerCase().includes(busca);
+    const matchBairro = !filtroBairro || c.bairro === filtroBairro;
+    const matchStatus = !filtroStatus || c.status === filtroStatus;
+    return matchBusca && matchBairro && matchStatus;
+  }).sort((a,b)=>b.data.localeCompare(a.data));
+
+  const header = ["ID","Data","Bairro","Endereco","Status"];
+  const linhas = filtrados.map(c=>[c.id, c.data, c.bairro, c.endereco, STATUS_META[c.status].label]);
+  const csv = [header, ...linhas]
+    .map(linha=>linha.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(","))
+    .join("\r\n");
+  const blob = new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `aeroscan_casos_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function montarHeroMeta(){
+  const e = calcularEstatisticas();
+  document.getElementById("hero-meta").innerHTML = `
+    <div><b>${e.totalBairros}</b><span>Bairros monitorados</span></div>
+    <div><b>${CASOS.length}</b><span>Casos notificados</span></div>
+    <div><b>${e.totalFocos}</b><span>Focos detectados pela IA</span></div>
+    <div><b>${Math.round(e.confiancaMedia*100)}%</b><span>Confiança média da IA</span></div>
+  `;
+}
+
+function montarStats(){
+  const e = calcularEstatisticas();
+  const pneuPct = Math.round(e.pneus/(e.pneus+e.piscinas)*100);
+  const piscinaPct = 100 - pneuPct;
+  const focoTipo = e.pneus >= e.piscinas ? "Pneus" : "Piscinas";
+  const confirmPct = Math.round(e.confirmados/CASOS.length*100);
+  const suspPct = 100 - confirmPct;
+
+  const comp = calcularComparacaoPeriodo();
+  const trendClass = comp.delta > 0 ? "up" : (comp.delta < 0 ? "down" : "flat");
+  const trendIconName = comp.delta > 0 ? "trending-up" : (comp.delta < 0 ? "trending-down" : "minus");
+  const trendTxt = (comp.delta > 0 ? "+" : "") + comp.pct + "%";
+
+  const ranking = Object.values(BAIRROS).sort((a,b)=>b.score-a.score);
+  const rankingRows = ranking.map(b=>`
+    <div class="rank-row">
+      <span class="rank-name">${b.nome}</span>
+      <div class="rank-bar-outer"><div class="rank-bar-inner" style="width:${b.score*10}%;background:${b.cor}"></div></div>
+      <span class="rank-score">${b.score}/10</span>
+    </div>
+  `).join("");
+
+  document.getElementById("stats-grid").innerHTML = `
+    <div class="stat-card">
+      <div class="stat-icon">${icon("activity")}</div>
+      <div class="stat-value">${e.casosUltimoMes}</div>
+      <div class="stat-label">Casos no último mês</div>
+      <div class="stat-sub">Toda a cidade</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">${icon("pin")}</div>
+      <div class="stat-value">${e.bairroTop.nome}</div>
+      <div class="stat-label">Bairro com mais casos</div>
+      <div class="stat-sub">${e.bairroTop.casosTotais} casos registrados</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">${icon("drone")}</div>
+      <div class="stat-value">${e.totalFocos}</div>
+      <div class="stat-label">Focos detectados pelo drone</div>
+      <div class="stat-sub">Pneus e piscinas</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">${icon("target")}</div>
+      <div class="stat-value">${Math.round(e.confiancaMedia*100)}%</div>
+      <div class="stat-label">Confiança média da IA</div>
+      <div class="stat-sub">Nas detecções do drone</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon alto">${icon("alert")}</div>
+      <div class="stat-value">${e.zonasAlto} de ${e.totalBairros}</div>
+      <div class="stat-label">Bairros em risco alto</div>
+      <div class="stat-sub">Prioridade de varredura</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">${icon("grid")}</div>
+      <div class="stat-value">${e.totalBairros}</div>
+      <div class="stat-label">Bairros monitorados</div>
+      <div class="stat-sub">Cobertura atual do MVP</div>
+    </div>
+    <div class="stat-card wide">
+      <div class="stat-head">
+        <div class="stat-icon">${icon("bars")}</div>
+        <div><div class="stat-label">Tipo de foco mais comum</div><div class="stat-value">${focoTipo}</div></div>
+      </div>
+      <div class="compare-row">
+        <span class="compare-label">${icon("disc",13)} Pneus</span>
+        <div class="bar-outer"><div class="bar-inner" style="width:${pneuPct}%"></div></div>
+        <span class="compare-num">${e.pneus}</span>
+      </div>
+      <div class="compare-row">
+        <span class="compare-label">${icon("droplet",13)} Piscinas</span>
+        <div class="bar-outer"><div class="bar-inner alt" style="width:${piscinaPct}%"></div></div>
+        <span class="compare-num">${e.piscinas}</span>
+      </div>
+    </div>
+    <div class="stat-card wide">
+      <div class="stat-head">
+        <div class="stat-icon">${icon("users")}</div>
+        <div><div class="stat-label">Casos confirmados vs. suspeitos</div><div class="stat-value">${e.confirmados} / ${e.suspeitos}</div></div>
+      </div>
+      <div class="compare-row">
+        <span class="compare-label">Confirmados</span>
+        <div class="bar-outer"><div class="bar-inner" style="width:${confirmPct}%;background:var(--alto)"></div></div>
+        <span class="compare-num">${e.confirmados}</span>
+      </div>
+      <div class="compare-row">
+        <span class="compare-label">Suspeitos</span>
+        <div class="bar-outer"><div class="bar-inner" style="width:${suspPct}%;background:var(--medio)"></div></div>
+        <span class="compare-num">${e.suspeitos}</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">${icon("bars")}</div>
+      <div class="stat-value">${comp.atual}<span class="trend-badge ${trendClass}">${icon(trendIconName,12,2.4)}${trendTxt}</span></div>
+      <div class="stat-label">Casos nos últimos 7 dias</div>
+      <div class="stat-sub">${comp.anterior} nos 7 dias anteriores</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon baixo">${icon("target")}</div>
+      <div class="stat-value">95.6%</div>
+      <div class="stat-label">Precisão do modelo (mAP@50)</div>
+      <div class="stat-sub">YOLOv8 · 50 épocas · 6.749 imagens</div>
+    </div>
+    <div class="stat-card wide">
+      <div class="stat-head">
+        <div class="stat-icon">${icon("layers")}</div>
+        <div><div class="stat-label">Ranking de bairros por risco</div><div class="stat-value">${ranking[0].nome} lidera</div></div>
+      </div>
+      ${rankingRows}
+    </div>
+    <div class="stat-card wide chart-card">
+      <div class="stat-head">
+        <div class="stat-icon">${icon("activity")}</div>
+        <div><div class="stat-label">Casos ao longo do tempo</div><div class="stat-value">Confirmados, suspeitos e outros status por dia</div></div>
+      </div>
+      ${svgTimeline(dadosTimeline())}
+      <div class="chart-legend">
+        <span><span class="swatch" style="background:var(--alto)"></span>Confirmado</span>
+        <span><span class="swatch" style="background:var(--medio)"></span>Suspeito</span>
+        <span><span class="swatch" style="background:var(--accent)"></span>Em investigação</span>
+        <span><span class="swatch" style="background:#8a929c"></span>Descartado</span>
+      </div>
+    </div>
+  `;
+}
+
+function svgTimeline(dados){
+  const W = 900, H = 180, padL = 4, padR = 4, padB = 22, padT = 6;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const n = Math.max(dados.length, 1);
+  const maxTotal = Math.max(1, ...dados.map(d=>d.total));
+  const gap = innerW / n;
+  const bw = Math.min(34, gap * 0.6);
+  const ordem = [["confirmado","bar-confirmado"],["suspeito","bar-suspeito"],["investigacao","bar-investigacao"],["descartado","bar-descartado"]];
+
+  let bars = "", labels = "";
+  dados.forEach((d,i)=>{
+    const x = padL + i*gap + (gap-bw)/2;
+    let yCursor = H - padB;
+    ordem.forEach(([key,cls])=>{
+      const val = d[key];
+      if(val > 0){
+        const h = (val/maxTotal) * innerH;
+        yCursor -= h;
+        bars += `<rect class="${cls}" x="${x.toFixed(1)}" y="${yCursor.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2"></rect>`;
+      }
+    });
+    if(n <= 16 || i % 2 === 0){
+      const [,mm,dd] = d.data.split("-");
+      labels += `<text class="axis-label" x="${(x+bw/2).toFixed(1)}" y="${H-6}" text-anchor="middle">${dd}/${mm}</text>`;
+    }
+  });
+  return `<svg class="timeline-chart" viewBox="0 0 ${W} ${H}">${bars}${labels}</svg>`;
+}
+
+function montarLegenda(){
+  document.getElementById("legend-box").innerHTML = `
+    <p class="legend-title">Nível de risco</p>
+    <div class="legend-row"><span class="swatch" style="background:${RISK_HEX.alto}"></span>Alto — score 7–10</div>
+    <div class="legend-row"><span class="swatch" style="background:${RISK_HEX.medio}"></span>Médio — score 4–6</div>
+    <div class="legend-row"><span class="swatch" style="background:${RISK_HEX.baixo}"></span>Baixo — score 1–3</div>
+    <p class="legend-title">Casos de dengue</p>
+    <div class="legend-row"><span class="swatch dot" style="background:${RISK_HEX.alto}"></span>Confirmado</div>
+    <div class="legend-row"><span class="swatch dot" style="background:${RISK_HEX.medio}"></span>Suspeito</div>
+    <p class="legend-title">Focos (drone + IA)</p>
+    <div class="legend-row">${icon("disc",14)} Pneu</div>
+    <div class="legend-row">${icon("droplet",14)} Piscina</div>
+  `;
+}
+
+let grupoBairros, grupoFocos;
+let poligonoLayers = {};
+let glowLayers = {};
+let casoClusterGroup;
+let casoMarkers = {};
+let heatLayerAtivo = null;
+let heatLayersBairroAtivos = [];
+let modoVisualizacao = "pins";
+let dataMaxSelecionada = null; // null = sem filtro de período (mostra tudo)
+
+function montarMapa(){
+  const map = L.map("map", {zoomControl:false}).setView([-22.2546,-45.7038], 14);
+  L.control.zoom({position:"bottomright"}).addTo(map);
+  window._map = map;
+  // O mapa mantém sempre as cores normais do OpenStreetMap, em qualquer tema.
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap contributors", maxZoom: 19
+  }).addTo(map);
+
+  grupoBairros = L.layerGroup().addTo(map);
+  grupoFocos    = L.layerGroup().addTo(map);
+  casoClusterGroup = L.markerClusterGroup({showCoverageOnHover:false, maxClusterRadius:50});
+
+  // --- Zonas de calor por bairro (glow + polígono do bairro) ---
+  Object.values(BAIRROS).forEach(b=>{
+    const coords = BAIRRO_POLIGONOS[b.nome];
+    const centro = CENTRO_MAPA[b.nome];
+
+    // glow (efeito de calor, desfocado)
+    const glow = L.circle(centro, {
+      radius: 230,
+      color: "transparent",
+      fillColor: b.cor,
+      fillOpacity: 0.30,
+      className: "heat-glow"
+    }).addTo(grupoBairros);
+    glowLayers[b.nome] = glow;
+
+    // contorno real do bairro (heat zone)
+    const poly = L.polygon(coords, {
+      color: b.cor,
+      weight: 2,
+      fillColor: b.cor,
+      fillOpacity: 0.42
+    }).addTo(grupoBairros);
+
+    poly.bindPopup(popupBairroHTML(b), {maxWidth:300});
+    poly.bindTooltip(`${b.nome} — score ${b.score}/10`, {sticky:true});
+    poly.on("mouseover", ()=>poly.setStyle({fillOpacity:0.6}));
+    poly.on("mouseout", ()=>poly.setStyle({fillOpacity:0.42}));
+    poligonoLayers[b.nome] = poly;
+  });
+
+  // enquadra o mapa para mostrar todos os bairros com uma margem confortável
+  const todosBounds = L.latLngBounds(Object.values(poligonoLayers).map(p=>p.getBounds()).flatMap(b=>[b.getNorthEast(), b.getSouthWest()]));
+  map.fitBounds(todosBounds, {padding:[36,36]});
+
+  // aplica blur via CSS nos glows (path gerado pelo Leaflet)
+  const style = document.createElement("style");
+  style.textContent = ".heat-glow{filter:blur(16px);}";
+  document.head.appendChild(style);
+
+  // --- Pins de casos ---
+  CASOS.forEach(criarMarcadorCaso);
+
+  // --- Pins de focos detectados pelo drone ---
+  FOCOS.forEach(f=>{
+    const iconSvg = f.tipo === "pneu" ? icon("disc",15,2) : icon("droplet",15,2);
+    const divIcon = L.divIcon({
+      html: `<div style="background:var(--ink,#14181c);color:#fff;border-radius:9px;padding:6px;display:flex;border:2px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.3)">${iconSvg}</div>`,
+      iconSize:[30,30], iconAnchor:[15,15], className:""
+    });
+    const marker = L.marker([f.lat,f.lng], {icon:divIcon}).addTo(grupoFocos);
+    const confPct = Math.round(f.confianca*100);
+    const nivelConf = f.confianca>=0.8 ? "Alta" : (f.confianca>=0.7 ? "Média" : "Baixa");
+    const corConf = f.confianca>=0.8 ? RISK_HEX.baixo : (f.confianca>=0.7 ? RISK_HEX.medio : RISK_HEX.alto);
+    marker.bindPopup(`
+      <div class="popup-card">
+        <div class="popup-head">${icon("drone",15)}<h4>Foco detectado por drone</h4></div>
+        <table>
+          <tr><td>ID</td><td><b>${f.id}</b></td></tr>
+          <tr><td>Tipo</td><td>${f.tipo[0].toUpperCase()+f.tipo.slice(1)}</td></tr>
+          <tr><td>Confiança IA</td><td><b style="color:${corConf}">${confPct}% (${nivelConf})</b></td></tr>
+          <tr><td>Data</td><td>${formatarData(f.data)}</td></tr>
+          <tr><td>Bairro</td><td>${f.bairro}</td></tr>
+        </table>
+        <div class="popup-image-link" onclick="abrirLightboxFoco('${f.id}')">
+          <img src="${FOCO_IMG[f.tipo]}" alt="">
+          Ver imagem de exemplo da detecção
+        </div>
+      </div>
+    `);
+  });
+
+  L.control.layers(null, {
+    [`<span class="swatch" style="background:${RISK_HEX.medio}"></span> Zonas de calor`]: grupoBairros,
+    [`<span class="swatch dot" style="background:#14181c"></span> Focos do drone`]: grupoFocos
+  }, {collapsed:false, position:"topright"}).addTo(map);
+
+  initMapaControles();
+}
+
+function popupBairroHTML(b){
+  const nivelLabel = b.nivel==="alto"?"ALTO":(b.nivel==="medio"?"MÉDIO":"BAIXO");
+  return `
+    <div class="popup-card">
+      <div class="popup-head">${icon("pin",15)}<h4>${b.nome}</h4></div>
+      <table>
+        <tr><td>Bairro</td><td><b>${b.nome}</b></td></tr>
+        <tr><td>Nível de risco</td><td><span class="nivel-pill" style="background:${b.cor}">${nivelLabel}</span></td></tr>
+        <tr><td>Casos (total)</td><td><b>${b.casosTotais}</b></td></tr>
+        <tr><td>Confirmados (14 dias)</td><td><b>${b.confirmados14d}</b></td></tr>
+        <tr><td>Focos detectados (drone)</td><td><b>${b.focosCount}</b></td></tr>
+        <tr><td>Prioridade de varredura</td><td><b>${b.prioridade}</b></td></tr>
+        <tr><td>Score</td><td><b>${b.score} / 10</b></td></tr>
+      </table>
+      <div class="score-bar-outer"><div class="score-bar-inner" style="width:${b.score*10}%;background:${b.cor}"></div></div>
+    </div>
+  `;
+}
+
+function formatarData(iso){
+  const [y,m,d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function criarMarcadorCaso(c){
+  const meta = STATUS_META[c.status] || STATUS_META.suspeito;
+  const marker = L.circleMarker([c.lat,c.lng], {
+    radius: 6.5, color:"#fff", weight:2, fillColor: STATUS_HEX[c.status] || STATUS_HEX.suspeito, fillOpacity:1
+  });
+
+  const fotoRow = c.foto ? `
+    <div class="popup-image-link" onclick="abrirLightboxCaso('${c.id}')">
+      <img src="${c.foto}" alt="">
+      Ver foto do local
+    </div>` : "";
+
+  marker.bindPopup(`
+    <div class="popup-card">
+      <div class="popup-head">${icon(meta.icon,15)}<h4>${meta.label}</h4></div>
+      <table>
+        <tr><td>ID</td><td><b>${c.id}</b></td></tr>
+        <tr><td>Rua / local</td><td><b>${c.endereco}</b></td></tr>
+        <tr><td>Bairro</td><td>${c.bairro}</td></tr>
+        <tr><td>Data</td><td>${formatarData(c.data)}</td></tr>
+        <tr><td>Status</td><td><span class="status-pill status-${c.status}">${meta.label.toUpperCase()}</span></td></tr>
+      </table>
+      ${fotoRow}
+    </div>
+  `);
+  marker.bindTooltip(c.endereco, {sticky:true});
+  casoMarkers[c.id] = marker;
+  return marker;
+}
+
+/* =========================================================
+   MODOS DE VISUALIZAÇÃO DO MAPA (pins / calor todos / calor por bairro)
+   + FILTRO DE PERÍODO
+   ========================================================= */
+function casosNoPeriodo(){
+  if(!dataMaxSelecionada) return CASOS;
+  return CASOS.filter(c=>c.data <= dataMaxSelecionada);
+}
+
+function gradientForColor(hex){
+  return {0.25: hex+"40", 0.55: hex+"a8", 1: hex};
+}
+
+function limparCamadasCasos(){
+  if(window._map.hasLayer(casoClusterGroup)) window._map.removeLayer(casoClusterGroup);
+  if(heatLayerAtivo){ window._map.removeLayer(heatLayerAtivo); heatLayerAtivo = null; }
+  heatLayersBairroAtivos.forEach(l=>window._map.removeLayer(l));
+  heatLayersBairroAtivos = [];
+}
+
+function aplicarModoVisualizacao(){
+  limparCamadasCasos();
+  const casosFiltrados = casosNoPeriodo();
+
+  if(modoVisualizacao === "pins"){
+    casoClusterGroup.clearLayers();
+    casosFiltrados.forEach(c=>{ if(casoMarkers[c.id]) casoClusterGroup.addLayer(casoMarkers[c.id]); });
+    casoClusterGroup.addTo(window._map);
+  } else if(modoVisualizacao === "calor-todos"){
+    const pontos = casosFiltrados.map(c=>[c.lat, c.lng, c.status==="confirmado" ? 1.0 : 0.5]);
+    heatLayerAtivo = L.heatLayer(pontos, {radius:30, blur:22, maxZoom:17, minOpacity:0.35});
+    heatLayerAtivo.addTo(window._map);
+  } else if(modoVisualizacao === "calor-bairro"){
+    Object.keys(BAIRRO_POLIGONOS).forEach(nome=>{
+      const pontos = casosFiltrados.filter(c=>c.bairro===nome).map(c=>[c.lat, c.lng, c.status==="confirmado" ? 1.0 : 0.5]);
+      if(!pontos.length) return;
+      const cor = (BAIRROS[nome] && BAIRROS[nome].cor) || RISK_HEX.medio;
+      const layer = L.heatLayer(pontos, {radius:32, blur:24, maxZoom:17, minOpacity:0.35, gradient:gradientForColor(cor)});
+      layer.addTo(window._map);
+      heatLayersBairroAtivos.push(layer);
+    });
+  }
+}
+
+function atualizarPeriodoSlider(){
+  const datas = datasOrdenadas();
+  const slider = document.getElementById("period-slider");
+  slider.max = Math.max(0, datas.length - 1);
+  slider.value = slider.max;
+  dataMaxSelecionada = null;
+  document.getElementById("period-label").textContent = "Todo o período";
+}
+
+function initMapaControles(){
+  atualizarPeriodoSlider();
+  aplicarModoVisualizacao();
+
+  document.getElementById("period-slider").addEventListener("input", e=>{
+    const datas = datasOrdenadas();
+    const idx = parseInt(e.target.value, 10);
+    if(idx >= datas.length - 1){
+      dataMaxSelecionada = null;
+      document.getElementById("period-label").textContent = "Todo o período";
+    } else {
+      dataMaxSelecionada = datas[idx];
+      document.getElementById("period-label").textContent = "Até " + formatarData(dataMaxSelecionada);
+    }
+    aplicarModoVisualizacao();
+  });
+
+  document.getElementById("period-reset").addEventListener("click", ()=>{
+    atualizarPeriodoSlider();
+    aplicarModoVisualizacao();
+  });
+
+  document.getElementById("modo-visualizacao").addEventListener("click", e=>{
+    const btn = e.target.closest("button"); if(!btn) return;
+    modoVisualizacao = btn.dataset.modo;
+    document.querySelectorAll("#modo-visualizacao button").forEach(b=>b.classList.toggle("active", b===btn));
+    aplicarModoVisualizacao();
+  });
+}
+
+// Recalcula BAIRROS e atualiza cor, popup e tooltip de cada polígono/glow já no mapa
+function atualizarPoligonosBairros(){
+  BAIRROS = calcularBairros();
+  Object.values(BAIRROS).forEach(b=>{
+    const poly = poligonoLayers[b.nome];
+    const glow = glowLayers[b.nome];
+    if(poly){
+      poly.setStyle({color:b.cor, fillColor:b.cor});
+      poly.setPopupContent(popupBairroHTML(b));
+      poly.setTooltipContent(`${b.nome} — score ${b.score}/10`);
+    }
+    if(glow){ glow.setStyle({fillColor:b.cor}); }
+  });
+}
+
+/* =========================================================
+   CADASTRO DE NOVO CASO (modal)
+   ========================================================= */
+function gerarNovoId(){
+  const nums = CASOS.map(c=>parseInt((c.id.split("-")[1]||""),10)).filter(n=>!isNaN(n));
+  const max = nums.length ? Math.max(...nums) : 0;
+  return "CD-" + String(max+1).padStart(3,"0");
+}
+
+function adicionarCaso({endereco, bairro, data, status, foto}){
+  const centro = CENTRO_MAPA[bairro];
+  const novo = {
+    id: gerarNovoId(), data, bairro, endereco, status, foto: foto || null,
+    lat: centro[0] + (Math.random()-0.5)*0.0022,
+    lng: centro[1] + (Math.random()-0.5)*0.0032,
+  };
+  CASOS.push(novo);
+  criarMarcadorCaso(novo);
+  atualizarTudoAposMudancaDeCasos();
+  return novo;
+}
+
+function atualizarCaso(id, patch){
+  const c = CASOS.find(x=>x.id===id);
+  if(!c) return;
+  const bairroMudou = patch.bairro !== c.bairro;
+  Object.assign(c, patch);
+  if(bairroMudou){
+    const centro = CENTRO_MAPA[c.bairro];
+    c.lat = centro[0] + (Math.random()-0.5)*0.0022;
+    c.lng = centro[1] + (Math.random()-0.5)*0.0032;
+  }
+  if(casoClusterGroup.hasLayer(casoMarkers[id])) casoClusterGroup.removeLayer(casoMarkers[id]);
+  criarMarcadorCaso(c);
+  atualizarTudoAposMudancaDeCasos();
+}
+
+function excluirCaso(id){
+  const idx = CASOS.findIndex(c=>c.id===id);
+  if(idx === -1) return;
+  if(!confirm("Excluir este caso? A ação não pode ser desfeita nesta sessão.")) return;
+  const marker = casoMarkers[id];
+  if(marker){ casoClusterGroup.removeLayer(marker); delete casoMarkers[id]; }
+  CASOS.splice(idx, 1);
+  atualizarTudoAposMudancaDeCasos();
+}
+
+function atualizarTudoAposMudancaDeCasos(){
+  atualizarPoligonosBairros();
+  montarHeroMeta();
+  montarStats();
+  renderCasos();
+  atualizarPeriodoSlider();
+  aplicarModoVisualizacao();
+}
+
+function initModalNovoCaso(){
+  const overlay = document.getElementById("modal-overlay");
+  const form = document.getElementById("form-novo-caso");
+  const selBairro = document.getElementById("nc-bairro");
+  const inputData = document.getElementById("nc-data");
+  const inputEndereco = document.getElementById("nc-endereco");
+  const statusChips = document.getElementById("nc-status");
+  const inputFoto = document.getElementById("nc-foto");
+  const fotoPreview = document.getElementById("nc-foto-preview");
+  const fotoImg = document.getElementById("nc-foto-img");
+  const tituloEl = document.getElementById("modal-titulo");
+  const subEl = document.getElementById("modal-sub");
+  const submitBtn = document.getElementById("modal-submit-btn");
+  let statusAtual = "suspeito";
+  let fotoAtual = null;
+  let editandoId = null;
+
+  selBairro.innerHTML = Object.keys(BAIRRO_POLIGONOS).map(b=>`<option value="${b}">${b}</option>`).join("");
+
+  function atualizarFotoPreview(){
+    if(fotoAtual){ fotoImg.src = fotoAtual; fotoPreview.classList.add("show"); }
+    else { fotoImg.src = ""; fotoPreview.classList.remove("show"); }
+  }
+
+  function abrirCriar(){
+    editandoId = null;
+    tituloEl.textContent = "Cadastrar novo caso";
+    subEl.textContent = "O caso é adicionado à lista, ao mapa e às estatísticas desta sessão.";
+    submitBtn.textContent = "Cadastrar caso";
+    inputEndereco.value = "";
+    selBairro.selectedIndex = 0;
+    const maxData = CASOS.reduce((m,c)=> c.data > m ? c.data : m, CASOS[0].data);
+    const prox = new Date(maxData + "T00:00:00"); prox.setDate(prox.getDate()+1);
+    inputData.value = prox.toISOString().slice(0,10);
+    statusAtual = "suspeito";
+    fotoAtual = null;
+    inputFoto.value = "";
+    atualizarFotoPreview();
+    statusChips.querySelectorAll(".chip").forEach(c=>c.classList.toggle("active", c.dataset.status==="suspeito"));
+    overlay.classList.add("open");
+    inputEndereco.focus();
+  }
+
+  function abrirEditar(c){
+    editandoId = c.id;
+    tituloEl.textContent = "Editar caso";
+    subEl.textContent = `Editando ${c.id}. As alterações atualizam a lista, o mapa e as estatísticas desta sessão.`;
+    submitBtn.textContent = "Salvar alterações";
+    inputEndereco.value = c.endereco;
+    selBairro.value = c.bairro;
+    inputData.value = c.data;
+    statusAtual = c.status;
+    fotoAtual = c.foto || null;
+    inputFoto.value = "";
+    atualizarFotoPreview();
+    statusChips.querySelectorAll(".chip").forEach(chip=>chip.classList.toggle("active", chip.dataset.status===c.status));
+    overlay.classList.add("open");
+    inputEndereco.focus();
+  }
+
+  function fechar(){ overlay.classList.remove("open"); }
+
+  document.getElementById("btn-novo-caso").addEventListener("click", abrirCriar);
+  document.getElementById("modal-close").addEventListener("click", fechar);
+  overlay.addEventListener("click", e=>{ if(e.target === overlay) fechar(); });
+  document.addEventListener("keydown", e=>{ if(e.key === "Escape" && overlay.classList.contains("open")) fechar(); });
+
+  statusChips.addEventListener("click", e=>{
+    const btn = e.target.closest(".chip"); if(!btn) return;
+    statusAtual = btn.dataset.status;
+    statusChips.querySelectorAll(".chip").forEach(c=>c.classList.toggle("active", c===btn));
+  });
+
+  inputFoto.addEventListener("change", ()=>{
+    const file = inputFoto.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{ fotoAtual = reader.result; atualizarFotoPreview(); };
+    reader.readAsDataURL(file);
+  });
+  document.getElementById("nc-foto-remover").addEventListener("click", ()=>{
+    fotoAtual = null;
+    inputFoto.value = "";
+    atualizarFotoPreview();
+  });
+
+  form.addEventListener("submit", e=>{
+    e.preventDefault();
+    const endereco = inputEndereco.value.trim();
+    const bairro = selBairro.value;
+    const data = inputData.value;
+    if(!endereco || !bairro || !data) return;
+    if(editandoId){
+      atualizarCaso(editandoId, {endereco, bairro, data, status:statusAtual, foto:fotoAtual});
+    } else {
+      adicionarCaso({endereco, bairro, data, status:statusAtual, foto:fotoAtual});
+    }
+    fechar();
+    document.getElementById("casos").scrollIntoView({behavior:"smooth", block:"start"});
+  });
+
+  document.getElementById("cases-list").addEventListener("click", e=>{
+    const thumb = e.target.closest("[data-lightbox-caso]");
+    if(thumb){ abrirLightboxCaso(thumb.dataset.lightboxCaso); return; }
+    const btn = e.target.closest("[data-action]");
+    if(!btn) return;
+    const c = CASOS.find(x=>x.id === btn.dataset.id);
+    if(!c) return;
+    if(btn.dataset.action === "editar") abrirEditar(c);
+    else if(btn.dataset.action === "excluir") excluirCaso(c.id);
+  });
+}
+
+/* =========================================================
+   SEÇÃO DE CASOS — lista com filtros (chips) + busca
+   ========================================================= */
+let filtroStatus = "";
+let filtroBairro = "";
+
+function montarCasos(){
+  const bairrosUnicos = [...new Set(CASOS.map(c=>c.bairro))];
+
+  document.getElementById("f-status").innerHTML = `
+    <button class="chip active" data-status="">Todos os status</button>
+    <button class="chip" data-status="confirmado">Confirmados</button>
+    <button class="chip" data-status="suspeito">Suspeitos</button>
+    <button class="chip" data-status="investigacao">Em investigação</button>
+    <button class="chip" data-status="descartado">Descartados</button>
+  `;
+  document.getElementById("f-bairro").innerHTML = `
+    <button class="chip active" data-bairro="">Todos os bairros</button>
+    ${bairrosUnicos.map(b=>`<button class="chip" data-bairro="${b}">${b}</button>`).join("")}
+  `;
+
+  document.getElementById("f-status").addEventListener("click", e=>{
+    const btn = e.target.closest(".chip"); if(!btn) return;
+    filtroStatus = btn.dataset.status;
+    document.querySelectorAll("#f-status .chip").forEach(c=>c.classList.toggle("active", c===btn));
+    renderCasos();
+  });
+  document.getElementById("f-bairro").addEventListener("click", e=>{
+    const btn = e.target.closest(".chip"); if(!btn) return;
+    filtroBairro = btn.dataset.bairro;
+    document.querySelectorAll("#f-bairro .chip").forEach(c=>c.classList.toggle("active", c===btn));
+    renderCasos();
+  });
+  document.getElementById("f-busca").addEventListener("input", renderCasos);
+
+  renderCasos();
+}
+
+function renderCasos(){
+  const busca = document.getElementById("f-busca").value.toLowerCase();
+
+  const filtrados = CASOS.filter(c=>{
+    const matchBusca = !busca || c.endereco.toLowerCase().includes(busca) ||
+                        c.id.toLowerCase().includes(busca) || c.bairro.toLowerCase().includes(busca);
+    const matchBairro = !filtroBairro || c.bairro === filtroBairro;
+    const matchStatus = !filtroStatus || c.status === filtroStatus;
+    return matchBusca && matchBairro && matchStatus;
+  }).sort((a,b)=>b.data.localeCompare(a.data));
+
+  const list = document.getElementById("cases-list");
+  if(filtrados.length === 0){
+    list.innerHTML = `<div class="empty-state">Nenhum caso encontrado para este filtro.</div>`;
+    return;
+  }
+
+  list.innerHTML = filtrados.map(c=>{
+    const meta = STATUS_META[c.status] || STATUS_META.suspeito;
+    const thumb = c.foto ? `<img class="case-thumb" src="${c.foto}" data-lightbox-caso="${c.id}" alt="Foto do local" title="Ver foto">` : "";
+    return `
+    <div class="case-row">
+      <div class="case-status-icon ${c.status}">${icon(meta.icon,16,2.1)}</div>
+      <div class="case-main">
+        <div class="case-address">${c.endereco}</div>
+        <div class="case-meta"><span class="tag">${c.bairro}</span><span>${formatarData(c.data)}</span></div>
+      </div>
+      <div class="case-right">
+        ${thumb}
+        <span class="status-pill status-${c.status}">${meta.label.toUpperCase()}</span>
+        <span class="case-id">${c.id}</span>
+        <div class="case-actions">
+          <button class="icon-btn" data-action="editar" data-id="${c.id}" title="Editar caso">${icon("edit",14,2)}</button>
+          <button class="icon-btn danger" data-action="excluir" data-id="${c.id}" title="Excluir caso">${icon("trash",14,2)}</button>
+        </div>
+      </div>
+    </div>
+  `;}).join("");
+}
+</script>
+</body>
+</html>

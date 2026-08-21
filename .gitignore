@@ -18,3 +18,11 @@ runs/**/wandb/
 # Gerados em tempo de execução
 blur_output/
 mapa_aeroscan.html
+runs/detect/
+
+# Ambiente virtual local
+venv/
+.venv/
+
+# Screenshots de teste da webcam (demo.py) — não devem ir para o repositório público
+screenshot_*.jpg

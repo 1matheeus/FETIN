@@ -3,6 +3,9 @@
 > Projeto FETIN 2026 — Equipe 49  
 > Detecção automática de focos de dengue (piscinas e pneus) via drone com visão computacional YOLOv8.
 
+> Baseado no projeto original de [@RanderDLemos](https://github.com/RanderDLemos/FETIN), com o painel
+> web (`dashboard/index.html`) adicionado nesta versão.
+
 ---
 
 ## 📊 Resultados do Modelo
@@ -41,7 +44,11 @@ FETIN/
 │       └── weights/
 │           └── best.pt    ← Modelo treinado ⭐
 ├── dashboard/
-│   └── mapa_aeroscan.html ← Mapa interativo de focos
+│   ├── index.html          ← Painel web completo (login, mapa, casos, gráficos) ⭐
+│   ├── gerar_mapa.py        ← Gera o mapa Folium estático (mapa_aeroscan.html)
+│   ├── areas_risco_mvp.csv
+│   ├── casos_dengue_mvp.csv
+│   └── focos_detectados_mvp.csv
 ├── demo.py                ← Script de demo com câmera ao vivo
 ├── requirements.txt
 └── README.md
@@ -55,7 +62,7 @@ FETIN/
 
 ```bash
 # 1. Clonar o repositório
-git clone https://github.com/RanderDLemos/FETIN.git
+git clone https://github.com/1matheeus/FETIN.git
 cd FETIN
 
 # 2. Instalar dependências
@@ -80,11 +87,47 @@ results = model.predict('video_drone.mp4', conf=0.25, save=True)  # vídeo
 
 ---
 
-## 🗺️ Mapa Interativo
+## 🖥️ Dashboard Web (Painel de Controle)
 
-Visualiza em tempo real as áreas de risco, casos confirmados de dengue e focos detectados pelo drone.
+Painel completo em HTML/CSS/JS puro (sem build, sem dependências de servidor) que reúne login, visão
+geral com indicadores e gráficos, mapa de risco interativo e a lista de casos notificados — tudo numa
+única página.
 
-Acesse: [Link do GitHub Pages após publicação]
+**Como abrir:** basta dar duplo clique em `dashboard/index.html` (ou usar a extensão Live Server) e
+abrir no navegador. Não precisa instalar nada.
+
+**Login de demonstração:** usuário `Admin`, senha `admin123` (autenticação simples no front-end, apenas
+para fins de demonstração do MVP — não usar com dados reais sem um backend de verdade).
+
+### O que tem no painel
+
+- **Visão geral** — KPIs (casos no último mês, bairro com mais casos, foco mais comum, confiança média
+  da IA), comparação com a semana anterior, ranking de bairros por risco, gráfico de casos ao longo do
+  tempo e as métricas do modelo YOLOv8.
+- **Mapa de risco** — zonas de calor com o contorno real de cada bairro (traçado a partir das ruas do
+  OpenStreetMap via Overpass API), com três modos de visualização: pins agrupados (clustering), calor
+  de todos os casos e calor por bairro (Leaflet.heat), além de um filtro por período para ver a evolução
+  semana a semana. Cada foco detectado tem um link para a imagem de exemplo da detecção.
+- **Casos notificados** — lista completa com busca e filtros, cadastro de novos casos (com foto opcional
+  do local), edição e exclusão, e exportação para CSV.
+- **Sobre o projeto** — metodologia, métricas do modelo e equipe.
+- **Modo escuro**, navegação com scroll suave entre seções e exportação de relatório (PDF via impressão
+  do navegador).
+
+> Os dados de casos e focos são simulados para fins de demonstração do MVP (mesma base do
+> `dashboard/*.csv`), mas os bairros **Centro**, **Jardim Santo Antônio** e **Por do Sol** usam a
+> localização oficial da Prefeitura de Santa Rita do Sapucaí (fonte OpenStreetMap). O bairro "Jardim das
+> Flores" não corresponde a um bairro oficialmente registrado — é uma área simulada mantida do MVP
+> original.
+
+Também é possível gerar uma versão estática e mais simples do mapa (só o mapa, sem o restante do
+painel) com Folium:
+
+```bash
+python dashboard/gerar_mapa.py
+```
+
+Isso cria `mapa_aeroscan.html` na raiz do projeto.
 
 ---
 
@@ -134,7 +177,8 @@ Todas as imagens passam por anonimização automática antes de serem armazenada
 - [YOLOv8](https://github.com/ultralytics/ultralytics) — Detecção de objetos
 - [Roboflow](https://roboflow.com) — Gerenciamento de datasets
 - [OpenCV](https://opencv.org) — Processamento de imagem
-- [Folium](https://python-visualization.github.io/folium/) — Mapa interativo
+- [Folium](https://python-visualization.github.io/folium/) — Mapa estático gerado em Python
+- [Leaflet](https://leafletjs.com) + Leaflet.heat + Leaflet.markercluster — Mapa interativo do dashboard web
 - [Python 3.10](https://python.org)
 
 ---
@@ -144,4 +188,5 @@ Todas as imagens passam por anonimização automática antes de serem armazenada
 | Nome | GitHub |
 |------|--------|
 | Rander D. Lemos | [@RanderDLemos](https://github.com/RanderDLemos) |
-| [Adicionar membros] | — |
+| Matheus Borges Mariano | [@1matheeus](https://github.com/1matheeus) |
+| [Adicionar demais membros] | — |
