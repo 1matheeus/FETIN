@@ -93,8 +93,10 @@ Painel completo em HTML/CSS/JS puro (sem build, sem dependências de servidor) q
 geral com indicadores e gráficos, mapa de risco interativo e a lista de casos notificados — tudo numa
 única página.
 
-**Como abrir:** basta dar duplo clique em `dashboard/index.html` (ou usar a extensão Live Server) e
-abrir no navegador. Não precisa instalar nada.
+**Acesse online:** https://1matheeus.github.io/FETIN/dashboard/index.html (GitHub Pages)
+
+**Ou rode localmente:** basta dar duplo clique em `dashboard/index.html` (ou usar a extensão Live
+Server) e abrir no navegador. Não precisa instalar nada.
 
 **Login de demonstração:** usuário `Admin`, senha `admin123` (autenticação simples no front-end, apenas
 para fins de demonstração do MVP — não usar com dados reais sem um backend de verdade).
