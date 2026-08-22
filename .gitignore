@@ -24,5 +24,7 @@ runs/detect/
 venv/
 .venv/
 
-# Screenshots de teste da webcam (demo.py) — não devem ir para o repositório público
+# Screenshots/fotos de teste da webcam (demo.py e drone/detectar_foco.py) —
+# não devem ir para o repositório público
 screenshot_*.jpg
+dashboard/foco_*.jpg

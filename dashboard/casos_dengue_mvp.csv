@@ -1,16 +1,16 @@
 id_caso,data_notificacao,bairro,endereco_aproximado,latitude,longitude,status,fonte,nivel_precisao
-CD-001,2026-05-23,Centro,"Rua Cel. José Augusto, próximo ao número 120",-22.2518,-45.7041,confirmado,base_mvp,rua_aproximada
-CD-002,2026-05-24,Centro,"Rua Cel. José Augusto, próximo ao número 180",-22.2525,-45.7028,confirmado,base_mvp,rua_aproximada
-CD-003,2026-05-26,Centro,"Praça Cônego Octávio, próximo à praça central",-22.2515,-45.7035,confirmado,base_mvp,rua_aproximada
-CD-004,2026-05-28,Centro,"Rua João Pessoa, próximo ao mercado",-22.2530,-45.7045,suspeito,base_mvp,rua_aproximada
-CD-005,2026-05-30,Centro,"Rua Cel. José Augusto, próximo ao número 240",-22.2510,-45.7022,confirmado,base_mvp,rua_aproximada
-CD-006,2026-06-01,Centro,"Rua Bento Gonçalves, próximo à escola",-22.2533,-45.7038,confirmado,base_mvp,rua_aproximada
-CD-007,2026-06-03,Centro,"Praça Cônego Octávio, próximo ao número 80",-22.2520,-45.7030,confirmado,base_mvp,rua_aproximada
-CD-008,2026-05-25,Jardim Santo Antônio,"Rua Rui Barbosa, próximo ao posto de saúde",-22.2575,-45.7025,confirmado,base_mvp,rua_aproximada
-CD-009,2026-05-29,Jardim Santo Antônio,"Rua Rui Barbosa, próximo ao campo",-22.2585,-45.7015,suspeito,base_mvp,rua_aproximada
-CD-010,2026-06-02,Jardim Santo Antônio,"Rua Santos Dumont, próximo ao número 210",-22.2590,-45.7030,confirmado,base_mvp,rua_aproximada
-CD-011,2026-06-04,Jardim Santo Antônio,"Rua Santos Dumont, próximo à associação",-22.2572,-45.7010,confirmado,base_mvp,rua_aproximada
-CD-012,2026-05-27,Jardim das Flores,"Rua das Acácias, próximo à quadra",-22.2495,-45.7018,confirmado,base_mvp,rua_aproximada
-CD-013,2026-06-01,Jardim das Flores,"Rua das Rosas, próximo ao número 50",-22.2483,-45.7005,suspeito,base_mvp,rua_aproximada
-CD-014,2026-06-03,Por do Sol,"Rua Por do Sol, próximo ao terminal",-22.2545,-45.7068,confirmado,base_mvp,rua_aproximada
-CD-015,2026-06-05,Por do Sol,"Rua Por do Sol, próximo à UBS",-22.2558,-45.7055,suspeito,base_mvp,rua_aproximada
+CD-001,2026-05-23,Centro,"Rua Cel. José Augusto, próximo ao número 120",-22.253203,-45.705624,confirmado,base_mvp,rua_aproximada
+CD-002,2026-05-24,Centro,"Rua Cel. José Augusto, próximo ao número 180",-22.254054,-45.704941,confirmado,base_mvp,rua_aproximada
+CD-003,2026-05-26,Centro,"Praça Cônego Octávio, próximo à praça central",-22.253501,-45.705321,confirmado,base_mvp,rua_aproximada
+CD-004,2026-05-28,Centro,"Rua João Pessoa, próximo ao mercado",-22.251528,-45.702961,suspeito,base_mvp,rua_aproximada
+CD-005,2026-05-30,Centro,"Rua Cel. José Augusto, próximo ao número 240",-22.251463,-45.703045,confirmado,base_mvp,rua_aproximada
+CD-006,2026-06-01,Centro,"Rua Bento Gonçalves, próximo à escola",-22.251644,-45.702895,confirmado,base_mvp,rua_aproximada
+CD-007,2026-06-03,Centro,"Praça Cônego Octávio, próximo ao número 80",-22.252911,-45.705843,confirmado,base_mvp,rua_aproximada
+CD-008,2026-05-25,Jardim Santo Antônio,"Rua Rui Barbosa, próximo ao posto de saúde",-22.263173,-45.698471,confirmado,base_mvp,rua_aproximada
+CD-009,2026-05-29,Jardim Santo Antônio,"Rua Rui Barbosa, próximo ao campo",-22.260924,-45.700141,suspeito,base_mvp,rua_aproximada
+CD-010,2026-06-02,Jardim Santo Antônio,"Rua Santos Dumont, próximo ao número 210",-22.262212,-45.698416,confirmado,base_mvp,rua_aproximada
+CD-011,2026-06-04,Jardim Santo Antônio,"Rua Santos Dumont, próximo à associação",-22.26174,-45.700574,confirmado,base_mvp,rua_aproximada
+CD-012,2026-05-27,Jardim das Flores,"Rua das Acácias, próximo à quadra",-22.244585,-45.6986,confirmado,base_mvp,rua_aproximada
+CD-013,2026-06-01,Jardim das Flores,"Rua das Rosas, próximo ao número 50",-22.246475,-45.699748,suspeito,base_mvp,rua_aproximada
+CD-014,2026-06-03,Por do Sol,"Rua Por do Sol, próximo ao terminal",-22.25636,-45.711302,confirmado,base_mvp,rua_aproximada
+CD-015,2026-06-05,Por do Sol,"Rua Por do Sol, próximo à UBS",-22.259329,-45.711977,suspeito,base_mvp,rua_aproximada

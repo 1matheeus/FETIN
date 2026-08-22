@@ -1,6 +1,8 @@
 id_foco,data_detectado,tipo_foco,classe_ia,latitude,longitude,confianca_ia,origem_imagem,status_verificacao,id_area
-FD-001,2026-06-03,pneu,tire,-22.2520,-45.7038,0.95,drone-img-001.jpg,pendente,AR-001
-FD-002,2026-06-03,piscina,pool,-22.2528,-45.7029,0.91,drone-img-002.jpg,pendente,AR-001
-FD-003,2026-06-04,pneu,tire,-22.2515,-45.7042,0.88,drone-img-003.jpg,pendente,AR-001
-FD-004,2026-06-04,pneu,tire,-22.2578,-45.7022,0.84,drone-img-004.jpg,pendente,AR-002
-FD-005,2026-06-05,piscina,pool,-22.2488,-45.7014,0.79,drone-img-005.jpg,pendente,AR-003
+FD-001,2026-06-03,pneu,tire,-22.251423,-45.706393,0.95,drone-img-001.jpg,pendente,AR-001
+FD-002,2026-06-03,piscina,pool,-22.252505,-45.706608,0.91,drone-img-002.jpg,pendente,AR-001
+FD-003,2026-06-04,pneu,tire,-22.251364,-45.705662,0.88,drone-img-003.jpg,pendente,AR-001
+FD-004,2026-06-04,pneu,tire,-22.262898,-45.700844,0.84,drone-img-004.jpg,pendente,AR-002
+FD-005,2026-06-05,piscina,pool,-22.245089,-45.700821,0.79,drone-img-005.jpg,pendente,AR-003
+FD-006,2026-08-21,piscina,pool,0.0,0.0,0.6582,foco_pool_20260821_212224.jpg,pendente,AR-001
+FD-007,2026-08-21,piscina,pool,0.0,0.0,0.7298,foco_pool_20260821_212227.jpg,pendente,AR-001

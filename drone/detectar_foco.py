@@ -259,18 +259,32 @@ def main():
     if not cap.isOpened():
         print(f'  ❌ Câmera {args.camera} não encontrada')
         return
+
+    # Aquecimento: no Windows, o backend MSMF costuma falhar nos primeiros
+    # frames logo após abrir a câmera. Tenta algumas leituras antes de seguir.
+    for _ in range(30):
+        ret, _ = cap.read()
+        if ret:
+            break
+        time.sleep(0.05)
     print('  ✅ Câmera aberta')
 
     detector    = DetectorPersistente(args.conf, args.tempo)
     registrador = RegistradorFocos()
     focos_confirmados_sessao = 0
+    falhas_seguidas = 0
 
     print('\n✅ Sistema ativo! Pressione Q para sair.\n')
 
     while True:
         ret, frame = cap.read()
         if not ret:
-            break
+            falhas_seguidas += 1
+            if falhas_seguidas > 60:
+                print('  ❌ Câmera parou de responder.')
+                break
+            continue
+        falhas_seguidas = 0
 
         results = model(frame, conf=args.conf * 0.8, verbose=False)
         result  = results[0]

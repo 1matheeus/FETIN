@@ -119,8 +119,21 @@ geral com indicadores e gráficos, mapa de risco interativo e a lista de casos n
 
 **Acesse online:** https://1matheeus.github.io/FETIN/dashboard/index.html (GitHub Pages)
 
-**Ou rode localmente:** basta dar duplo clique em `dashboard/index.html` (ou usar a extensão Live
-Server) e abrir no navegador. Não precisa instalar nada.
+O painel carrega os casos e focos **ao vivo** a partir de `dashboard/casos_dengue_mvp.csv` e
+`dashboard/focos_detectados_mvp.csv` via `fetch()`. Isso significa que qualquer foco novo gravado pelo
+`drone/detectar_foco.py` aparece automaticamente ao recarregar a página.
+
+**Rodando localmente:** navegadores bloqueiam `fetch()` de arquivos abertos direto como `file://`, então
+dar duplo clique em `dashboard/index.html` funciona, mas mostra um aviso e cai para dados de exemplo
+estáticos. Para ver os dados reais dos CSVs localmente, sirva a pasta por um servidor simples:
+
+```bash
+cd dashboard
+python -m http.server 8000
+# depois abra http://localhost:8000
+```
+
+No GitHub Pages isso não é um problema — o fetch funciona normalmente.
 
 **Login de demonstração:** usuário `Admin`, senha `admin123` (autenticação simples no front-end, apenas
 para fins de demonstração do MVP — não usar com dados reais sem um backend de verdade).

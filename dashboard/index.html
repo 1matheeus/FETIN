@@ -257,6 +257,19 @@
   }
   .modal-submit:hover{background:var(--accent-ink);}
 
+  /* ---------- DATA SOURCE BANNER ---------- */
+  .data-source-banner{
+    display:none;align-items:flex-start;gap:10px;
+    background:var(--medio-soft);color:var(--text);border-bottom:1px solid var(--border);
+    padding:11px 28px;font-size:12.5px;line-height:1.6;
+  }
+  .data-source-banner.show{display:flex;}
+  .data-source-banner svg{width:16px;height:16px;color:#a06913;flex-shrink:0;margin-top:1px;}
+  .data-source-banner code{
+    background:rgba(0,0,0,.08);padding:1px 5px;border-radius:4px;font-size:11.5px;
+    font-family:ui-monospace,Consolas,monospace;
+  }
+
   /* ---------- HERO ---------- */
   .hero{
     background:var(--ink);color:#fff;padding:0;
@@ -601,6 +614,14 @@
     </div>
   </nav>
 
+  <div class="data-source-banner" id="data-source-banner">
+    <span id="banner-icon"></span>
+    <span>Não foi possível carregar os CSVs em tempo real — exibindo dados de exemplo estáticos.
+    Isso acontece quando o arquivo é aberto direto (<code>file://</code>); abra via um servidor local
+    (ex.: <code>python -m http.server</code> na pasta <code>dashboard/</code>) ou pelo GitHub Pages para
+    ver os dados ao vivo dos CSVs.</span>
+  </div>
+
   <!-- HERO -->
   <section class="hero" id="inicio">
     <div class="hero-inner">
@@ -815,12 +836,27 @@ function icon(name, size=18, stroke=1.9){
 }
 
 /* =========================================================
-   DADOS (mesma base do MVP — casos_dengue_mvp.csv,
-   focos_detectados_mvp.csv, areas_risco_mvp.csv)
-   Dados simulados para fins de demonstração do projeto FETIN.
+   DADOS — carregados ao vivo de dashboard/casos_dengue_mvp.csv
+   e dashboard/focos_detectados_mvp.csv via fetch(). O script
+   drone/detectar_foco.py grava novos focos diretamente nesse CSV,
+   então recarregar a página mostra as detecções mais recentes.
+
+   Se o fetch falhar (ex.: arquivo aberto direto como file:// —
+   navegadores bloqueiam fetch de arquivos locais por segurança),
+   caímos para os dados de exemplo abaixo e avisamos na tela.
    ========================================================= */
 
-const CASOS = [
+let CASOS = [];
+let FOCOS = [];
+
+const AREA_BAIRRO = {
+  "AR-001": "Centro",
+  "AR-002": "Jardim Santo Antônio",
+  "AR-003": "Jardim das Flores",
+  "AR-004": "Por do Sol",
+};
+
+const DADOS_FALLBACK_CASOS = [
   {id:"CD-001", data:"2026-05-23", bairro:"Centro", endereco:"Rua Cel. José Augusto, próximo ao número 120", lat:-22.253203, lng:-45.705624, status:"confirmado"},
   {id:"CD-002", data:"2026-05-24", bairro:"Centro", endereco:"Rua Cel. José Augusto, próximo ao número 180", lat:-22.254054, lng:-45.704941, status:"confirmado"},
   {id:"CD-003", data:"2026-05-26", bairro:"Centro", endereco:"Praça Cônego Octávio, próximo à praça central", lat:-22.253501, lng:-45.705321, status:"confirmado"},
@@ -838,13 +874,108 @@ const CASOS = [
   {id:"CD-015", data:"2026-06-05", bairro:"Por do Sol", endereco:"Rua Por do Sol, próximo à UBS", lat:-22.259329, lng:-45.711977, status:"suspeito"},
 ];
 
-const FOCOS = [
+const DADOS_FALLBACK_FOCOS = [
   {id:"FD-001", data:"2026-06-03", tipo:"pneu",    lat:-22.251423, lng:-45.706393, confianca:0.95, bairro:"Centro"},
   {id:"FD-002", data:"2026-06-03", tipo:"piscina", lat:-22.252505, lng:-45.706608, confianca:0.91, bairro:"Centro"},
   {id:"FD-003", data:"2026-06-04", tipo:"pneu",    lat:-22.251364, lng:-45.705662, confianca:0.88, bairro:"Centro"},
   {id:"FD-004", data:"2026-06-04", tipo:"pneu",    lat:-22.262898, lng:-45.700844, confianca:0.84, bairro:"Jardim Santo Antônio"},
   {id:"FD-005", data:"2026-06-05", tipo:"piscina", lat:-22.245089, lng:-45.700821, confianca:0.79, bairro:"Jardim das Flores"},
 ];
+
+// Parser CSV mínimo (RFC4180): lida com campos entre aspas contendo vírgulas.
+function parseCSV(texto){
+  const linhas = [];
+  let campo = "", linha = [], entreAspas = false;
+  for(let i = 0; i < texto.length; i++){
+    const c = texto[i], prox = texto[i+1];
+    if(entreAspas){
+      if(c === '"' && prox === '"'){ campo += '"'; i++; }
+      else if(c === '"'){ entreAspas = false; }
+      else { campo += c; }
+    } else if(c === '"'){
+      entreAspas = true;
+    } else if(c === ','){
+      linha.push(campo); campo = "";
+    } else if(c === '\r'){
+      // ignora
+    } else if(c === '\n'){
+      linha.push(campo); linhas.push(linha); linha = []; campo = "";
+    } else {
+      campo += c;
+    }
+  }
+  if(campo.length || linha.length){ linha.push(campo); linhas.push(linha); }
+  if(!linhas.length) return [];
+  const cabecalho = linhas[0].map(h=>h.trim());
+  return linhas.slice(1)
+    .filter(l => l.some(v => v.trim() !== ""))
+    .map(l => {
+      const obj = {};
+      cabecalho.forEach((h,idx)=>{ obj[h] = (l[idx] ?? "").trim(); });
+      return obj;
+    });
+}
+
+async function buscarCSV(caminho){
+  const resp = await fetch(caminho, {cache:"no-store"});
+  if(!resp.ok) throw new Error(`HTTP ${resp.status} ao buscar ${caminho}`);
+  return parseCSV(await resp.text());
+}
+
+function casosDoCSV(linhas){
+  return linhas.map(r => ({
+    id: r.id_caso,
+    data: r.data_notificacao,
+    bairro: r.bairro,
+    endereco: r.endereco_aproximado,
+    lat: parseFloat(r.latitude),
+    lng: parseFloat(r.longitude),
+    status: r.status,
+  })).filter(c => c.id && !Number.isNaN(c.lat) && !Number.isNaN(c.lng));
+}
+
+function focosDoCSV(linhas){
+  return linhas.map(r => {
+    const bairro = AREA_BAIRRO[r.id_area] || "Centro";
+    let lat = parseFloat(r.latitude), lng = parseFloat(r.longitude);
+    const semGPS = !lat || !lng || Number.isNaN(lat) || Number.isNaN(lng);
+    if(semGPS){
+      const centro = CENTRO_MAPA[bairro] || CENTRO_MAPA["Centro"];
+      lat = centro[0] + (Math.random()-0.5)*0.0018;
+      lng = centro[1] + (Math.random()-0.5)*0.0026;
+    }
+    return {
+      id: r.id_foco,
+      data: r.data_detectado,
+      tipo: r.tipo_foco,
+      lat, lng, semGPS,
+      confianca: parseFloat(r.confianca_ia),
+      bairro,
+    };
+  }).filter(f => f.id);
+}
+
+async function carregarDados(){
+  try{
+    const [casosCSV, focosCSV] = await Promise.all([
+      buscarCSV("casos_dengue_mvp.csv"),
+      buscarCSV("focos_detectados_mvp.csv"),
+    ]);
+    CASOS = casosDoCSV(casosCSV);
+    FOCOS = focosDoCSV(focosCSV);
+    if(!CASOS.length || !FOCOS.length) throw new Error("CSV vazio ou em formato inesperado");
+  } catch(e){
+    console.warn("Não foi possível carregar os CSVs ao vivo, usando dados de exemplo:", e);
+    CASOS = DADOS_FALLBACK_CASOS.slice();
+    FOCOS = DADOS_FALLBACK_FOCOS.slice();
+    mostrarAvisoFallback();
+  }
+}
+
+function mostrarAvisoFallback(){
+  const banner = document.getElementById("data-source-banner");
+  if(banner) banner.classList.add("show");
+}
 
 // Contorno real de cada bairro, traçado a partir da malha de ruas do OpenStreetMap
 // (consulta Overpass API + envoltória côncava sobre os pontos das vias em cada área).
@@ -936,7 +1067,7 @@ function calcularBairros(){
   });
   return raw;
 }
-let BAIRROS = calcularBairros();
+let BAIRROS = {};
 
 /* =========================================================
    ESTATÍSTICAS AGREGADAS (para a seção "Visão geral")
@@ -1012,6 +1143,7 @@ document.getElementById("nav-toggle").innerHTML = icon("menu", 18, 2);
 document.getElementById("novo-caso-icon").innerHTML = icon("plus", 15, 2.3);
 document.getElementById("modal-close").innerHTML = icon("close", 14, 2.2);
 document.getElementById("lightbox-close").innerHTML = icon("close", 16, 2.2);
+document.getElementById("banner-icon").innerHTML = icon("alert", 16, 2);
 document.getElementById("export-report-icon").innerHTML = icon("download", 14, 2);
 document.getElementById("export-csv-icon").innerHTML = icon("download", 14, 2);
 
@@ -1136,9 +1268,13 @@ function initNavSpy(){
    INICIALIZAÇÃO DO APP
    ========================================================= */
 let _initialized = false;
-function initApp(){
+async function initApp(){
   if(_initialized) return;
   _initialized = true;
+  document.getElementById("stats-grid").innerHTML = `<div class="empty-state">Carregando dados...</div>`;
+  document.getElementById("cases-list").innerHTML = `<div class="empty-state">Carregando dados...</div>`;
+  await carregarDados();
+  BAIRROS = calcularBairros();
   montarHeroMeta();
   montarStats();
   montarMapa();
@@ -1458,6 +1594,7 @@ function montarMapa(){
           <tr><td>Confiança IA</td><td><b style="color:${corConf}">${confPct}% (${nivelConf})</b></td></tr>
           <tr><td>Data</td><td>${formatarData(f.data)}</td></tr>
           <tr><td>Bairro</td><td>${f.bairro}</td></tr>
+          ${f.semGPS ? `<tr><td>Localização</td><td style="color:var(--text-faint)">Aproximada (sem fix de GPS)</td></tr>` : ""}
         </table>
         <div class="popup-image-link" onclick="abrirLightboxFoco('${f.id}')">
           <img src="${FOCO_IMG[f.tipo]}" alt="">
