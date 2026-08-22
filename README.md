@@ -36,8 +36,10 @@ O AeroScan é um sistema de drone com IA que sobrevoa áreas de risco e detecta 
 3. Foco detectado com confiança > 60% inicia contagem de 3 segundos
 4. Se mantiver acima de 60% por 3 segundos → foco confirmado
 5. GPS lê as coordenadas reais do módulo externo (protocolo NMEA)
-6. Foco é salvo automaticamente em `dashboard/focos_detectados_mvp.csv`
-7. Recarregar o dashboard mostra o novo marcador no mapa de Santa Rita do Sapucaí
+6. Foco (com foto) é salvo na Área de Trabalho — sempre no mesmo arquivo
+   `focos_detectados_mvp.csv`, uma linha adicionada por detecção
+7. No dashboard, o botão **Importar focos** (seção Mapa de risco) permite selecionar esse CSV + as
+   fotos da Área de Trabalho para colocá-los no mapa
 
 ---
 
@@ -108,6 +110,11 @@ python drone/detectar_foco.py --porta /dev/ttyUSB0
 | `--tempo` | Segundos mantendo o threshold para confirmar foco | `3` |
 | `--camera` | Índice da câmera | `0` |
 | `--sem-gps` | Modo sem GPS para testes em bancada | — |
+| `--saida` | Pasta onde salvar o CSV e as fotos | Área de Trabalho |
+
+O CSV (`focos_detectados_mvp.csv`) e as fotos (`foco_<tipo>_<data>.jpg`) ficam sempre na Área de
+Trabalho — cada nova detecção só adiciona uma linha ao mesmo arquivo. Para levar isso para o
+dashboard, use o botão **Importar focos** (veja abaixo).
 
 ---
 
@@ -146,7 +153,12 @@ para fins de demonstração do MVP — não usar com dados reais sem um backend 
 - **Mapa de risco** — zonas de calor com o contorno real de cada bairro (traçado a partir das ruas do
   OpenStreetMap via Overpass API), com três modos de visualização: pins agrupados (clustering), calor
   de todos os casos e calor por bairro (Leaflet.heat), além de um filtro por período para ver a evolução
-  semana a semana. Cada foco detectado tem um link para a imagem de exemplo da detecção.
+  semana a semana. Cada foco detectado tem um link para a foto real da detecção (ou uma imagem de
+  exemplo, se nenhuma foto foi importada).
+- **Importar focos** — botão que abre um seletor de arquivos para escolher o
+  `focos_detectados_mvp.csv` salvo pelo `drone/detectar_foco.py` na Área de Trabalho, junto com as
+  fotos. O dashboard casa cada foco com sua foto pelo nome do arquivo e adiciona/atualiza os marcadores
+  no mapa (só nesta sessão do navegador — para tornar permanente, substitua o CSV do repositório).
 - **Casos notificados** — lista completa com busca e filtros, cadastro de novos casos (com foto opcional
   do local), edição e exclusão, e exportação para CSV.
 - **Sobre o projeto** — metodologia, métricas do modelo e equipe.

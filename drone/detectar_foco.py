@@ -6,7 +6,10 @@ Lógica:
   - IA detecta foco com confiança > 60%
   - Se mantiver por TEMPO_CONFIRMACAO segundos → confirma
   - Lê GPS do módulo externo do drone (serial/NMEA)
-  - Salva no CSV e atualiza o dashboard automaticamente
+  - Salva o CSV e as fotos na Área de Trabalho (Desktop), sempre no
+    mesmo arquivo — cada nova detecção só adiciona uma linha nele
+  - Para levar os focos para o site, use o botão "Importar focos"
+    do dashboard e selecione esse CSV (+ as fotos) na Área de Trabalho
 
 Como usar:
   pip install ultralytics opencv-python pyserial
@@ -18,6 +21,7 @@ Flags opcionais:
   --tempo 3               segundos para confirmar (padrão: 3)
   --camera 0              índice da câmera (padrão: 0)
   --sem-gps               modo sem GPS (usa coordenadas manuais)
+  --saida ~/Desktop       pasta onde salvar o CSV e as fotos (padrão: Área de Trabalho)
 """
 
 import cv2
@@ -34,8 +38,15 @@ CONF_MINIMA       = 0.60
 TEMPO_CONFIRMACAO = 3.0
 CLASSES           = ['pool', 'tire']
 MODELO_PATH       = 'runs/drone_v1/weights/best.pt'
-DASHBOARD_CSV     = Path('dashboard/focos_detectados_mvp.csv')
-DASHBOARD_DIR     = Path('dashboard')
+CSV_NOME          = 'focos_detectados_mvp.csv'
+
+def pasta_area_trabalho():
+    """Área de Trabalho do usuário atual. Em qualquer idioma do Windows/Mac/Linux
+    a pasta real se chama 'Desktop' — só o nome exibido no Explorer é traduzido."""
+    desktop = Path.home() / 'Desktop'
+    if not desktop.exists():
+        desktop = Path.home()  # fallback: salva na pasta do usuário
+    return desktop
 
 class GPS:
     def __init__(self, porta=None, baudrate=9600):
@@ -145,15 +156,17 @@ class GPS:
 
 
 class RegistradorFocos:
-    def __init__(self):
-        DASHBOARD_DIR.mkdir(parents=True, exist_ok=True)
+    def __init__(self, saida_dir):
+        self.saida_dir = Path(saida_dir)
+        self.csv_path  = self.saida_dir / CSV_NOME
+        self.saida_dir.mkdir(parents=True, exist_ok=True)
         self._contador = self._proximo_id()
 
     def _proximo_id(self):
-        if not DASHBOARD_CSV.exists():
+        if not self.csv_path.exists():
             return 1
         try:
-            with open(DASHBOARD_CSV, newline='', encoding='utf-8') as f:
+            with open(self.csv_path, newline='', encoding='utf-8') as f:
                 linhas = list(csv.DictReader(f))
                 if not linhas:
                     return 1
@@ -177,8 +190,9 @@ class RegistradorFocos:
             'status_verificacao': 'pendente',
             'id_area':            'AR-001',
         }
-        existe = DASHBOARD_CSV.exists()
-        with open(DASHBOARD_CSV, 'a', newline='', encoding='utf-8') as f:
+        # Sempre o mesmo arquivo: se já existe, só adiciona uma linha (append).
+        existe = self.csv_path.exists()
+        with open(self.csv_path, 'a', newline='', encoding='utf-8') as f:
             writer = csv.DictWriter(f, fieldnames=nova_linha.keys())
             if not existe:
                 writer.writeheader()
@@ -187,7 +201,8 @@ class RegistradorFocos:
         print(f'     Tipo:       {nova_linha["tipo_foco"]}')
         print(f'     Confiança:  {confianca:.1%}')
         print(f'     GPS:        {latitude:.6f}, {longitude:.6f}')
-        print(f'     → Recarregue o dashboard para ver o novo marcador!\n')
+        print(f'     → Salvo em: {self.csv_path}')
+        print(f'     → No site, clique em "Importar focos" e selecione esse CSV + a foto.\n')
         return id_foco
 
 
@@ -231,12 +246,17 @@ def main():
     parser.add_argument('--tempo',   type=float, default=TEMPO_CONFIRMACAO)
     parser.add_argument('--camera',  type=int,   default=0)
     parser.add_argument('--sem-gps', action='store_true')
+    parser.add_argument('--saida',   type=str,   default=None,
+                         help='Pasta onde salvar o CSV e as fotos (padrão: Área de Trabalho)')
     args = parser.parse_args()
+
+    saida_dir = Path(args.saida).expanduser() if args.saida else pasta_area_trabalho()
 
     print('\n🚁 AeroScan — Detecção Persistente de Focos')
     print('=' * 50)
     print(f'  Confiança mínima:  {args.conf:.0%}')
     print(f'  Tempo confirmação: {args.tempo}s')
+    print(f'  Salvando em:       {saida_dir / CSV_NOME}')
     print('=' * 50)
 
     print('\n🤖 Carregando modelo...')
@@ -270,7 +290,7 @@ def main():
     print('  ✅ Câmera aberta')
 
     detector    = DetectorPersistente(args.conf, args.tempo)
-    registrador = RegistradorFocos()
+    registrador = RegistradorFocos(saida_dir)
     focos_confirmados_sessao = 0
     falhas_seguidas = 0
 
@@ -306,7 +326,7 @@ def main():
                 lat, lon = 0.0, 0.0
             ts       = datetime.now().strftime('%Y%m%d_%H%M%S')
             img_nome = f'foco_{classe}_{ts}.jpg'
-            img_path = DASHBOARD_DIR / img_nome
+            img_path = saida_dir / img_nome
             cv2.imwrite(str(img_path), frame)
             registrador.registrar(classe, confianca, lat, lon, img_nome)
 
@@ -357,7 +377,8 @@ def main():
 
     print(f'\n✅ Sessão encerrada. Focos confirmados: {focos_confirmados_sessao}')
     if focos_confirmados_sessao > 0:
-        print('   → Abra o dashboard para ver os marcadores no mapa!')
+        print(f'   → Arquivo: {registrador.csv_path}')
+        print('   → No dashboard, clique em "Importar focos" e selecione o CSV e as fotos salvos aí.')
 
 if __name__ == '__main__':
     main()

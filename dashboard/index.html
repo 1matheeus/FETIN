@@ -460,6 +460,13 @@
     font-family:inherit;padding:4px;white-space:nowrap;
   }
   .period-reset:hover{text-decoration:underline;}
+  .import-status{
+    font-size:12.5px;color:var(--text-muted);margin:-8px 0 16px;min-height:18px;
+    display:none;
+  }
+  .import-status.show{display:block;}
+  .import-status.erro{color:var(--alto);}
+  .import-status.ok{color:var(--baixo);}
 
   /* ---------- LIGHTBOX ---------- */
   .lightbox-overlay{
@@ -666,7 +673,12 @@
         <input type="range" id="period-slider" min="0" max="0" value="0" step="1">
         <button class="period-reset" id="period-reset">Redefinir</button>
       </div>
+      <button class="toolbar-btn" id="btn-importar-focos">
+        <span id="import-focos-icon"></span>Importar focos
+      </button>
+      <input type="file" id="input-importar-focos" accept=".csv,image/jpeg,image/png,image/jpg" multiple hidden>
     </div>
+    <p class="import-status" id="import-status"></p>
     <div class="map-card">
       <div id="map"></div>
       <div class="map-title"><b>Santa Rita do Sapucaí</b><span>Atualizado com a base de dados do MVP</span></div>
@@ -951,6 +963,7 @@ function focosDoCSV(linhas){
       lat, lng, semGPS,
       confianca: parseFloat(r.confianca_ia),
       bairro,
+      imagemNome: r.origem_imagem || "",
     };
   }).filter(f => f.id);
 }
@@ -1144,6 +1157,7 @@ document.getElementById("novo-caso-icon").innerHTML = icon("plus", 15, 2.3);
 document.getElementById("modal-close").innerHTML = icon("close", 14, 2.2);
 document.getElementById("lightbox-close").innerHTML = icon("close", 16, 2.2);
 document.getElementById("banner-icon").innerHTML = icon("alert", 16, 2);
+document.getElementById("import-focos-icon").innerHTML = icon("download", 14, 2);
 document.getElementById("export-report-icon").innerHTML = icon("download", 14, 2);
 document.getElementById("export-csv-icon").innerHTML = icon("download", 14, 2);
 
@@ -1164,7 +1178,12 @@ function abrirLightboxCaso(id){
 }
 function abrirLightboxFoco(id){
   const f = FOCOS.find(x=>x.id===id);
-  if(f) abrirLightbox(FOCO_IMG[f.tipo], `${f.id} — exemplo de detecção de ${f.tipo} pelo modelo YOLOv8 (imagem do dataset de treino)`);
+  if(!f) return;
+  if(f.foto){
+    abrirLightbox(f.foto, `${f.id} — foto real capturada na detecção (${f.tipo})`);
+  } else {
+    abrirLightbox(FOCO_IMG[f.tipo], `${f.id} — exemplo de detecção de ${f.tipo} pelo modelo YOLOv8 (imagem do dataset de treino)`);
+  }
 }
 function initLightbox(){
   document.getElementById("lightbox-close").addEventListener("click", fecharLightbox);
@@ -1286,6 +1305,7 @@ async function initApp(){
   initModalNovoCaso();
   initLightbox();
   initExportButtons();
+  initImportarFocos();
   window.addEventListener("load", ()=>{ if(window._map) window._map.invalidateSize(); });
 }
 
@@ -1514,6 +1534,7 @@ let poligonoLayers = {};
 let glowLayers = {};
 let casoClusterGroup;
 let casoMarkers = {};
+let focoMarkers = {};
 let heatLayerAtivo = null;
 let heatLayersBairroAtivos = [];
 let modoVisualizacao = "pins";
@@ -1575,34 +1596,7 @@ function montarMapa(){
   CASOS.forEach(criarMarcadorCaso);
 
   // --- Pins de focos detectados pelo drone ---
-  FOCOS.forEach(f=>{
-    const iconSvg = f.tipo === "pneu" ? icon("disc",15,2) : icon("droplet",15,2);
-    const divIcon = L.divIcon({
-      html: `<div style="background:var(--ink,#14181c);color:#fff;border-radius:9px;padding:6px;display:flex;border:2px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.3)">${iconSvg}</div>`,
-      iconSize:[30,30], iconAnchor:[15,15], className:""
-    });
-    const marker = L.marker([f.lat,f.lng], {icon:divIcon}).addTo(grupoFocos);
-    const confPct = Math.round(f.confianca*100);
-    const nivelConf = f.confianca>=0.8 ? "Alta" : (f.confianca>=0.7 ? "Média" : "Baixa");
-    const corConf = f.confianca>=0.8 ? RISK_HEX.baixo : (f.confianca>=0.7 ? RISK_HEX.medio : RISK_HEX.alto);
-    marker.bindPopup(`
-      <div class="popup-card">
-        <div class="popup-head">${icon("drone",15)}<h4>Foco detectado por drone</h4></div>
-        <table>
-          <tr><td>ID</td><td><b>${f.id}</b></td></tr>
-          <tr><td>Tipo</td><td>${f.tipo[0].toUpperCase()+f.tipo.slice(1)}</td></tr>
-          <tr><td>Confiança IA</td><td><b style="color:${corConf}">${confPct}% (${nivelConf})</b></td></tr>
-          <tr><td>Data</td><td>${formatarData(f.data)}</td></tr>
-          <tr><td>Bairro</td><td>${f.bairro}</td></tr>
-          ${f.semGPS ? `<tr><td>Localização</td><td style="color:var(--text-faint)">Aproximada (sem fix de GPS)</td></tr>` : ""}
-        </table>
-        <div class="popup-image-link" onclick="abrirLightboxFoco('${f.id}')">
-          <img src="${FOCO_IMG[f.tipo]}" alt="">
-          Ver imagem de exemplo da detecção
-        </div>
-      </div>
-    `);
-  });
+  FOCOS.forEach(criarMarcadorFoco);
 
   L.control.layers(null, {
     [`<span class="swatch" style="background:${RISK_HEX.medio}"></span> Zonas de calor`]: grupoBairros,
@@ -1663,6 +1657,40 @@ function criarMarcadorCaso(c){
   `);
   marker.bindTooltip(c.endereco, {sticky:true});
   casoMarkers[c.id] = marker;
+  return marker;
+}
+
+function criarMarcadorFoco(f){
+  const iconSvg = f.tipo === "pneu" ? icon("disc",15,2) : icon("droplet",15,2);
+  const divIcon = L.divIcon({
+    html: `<div style="background:var(--ink,#14181c);color:#fff;border-radius:9px;padding:6px;display:flex;border:2px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.3)">${iconSvg}</div>`,
+    iconSize:[30,30], iconAnchor:[15,15], className:""
+  });
+  const marker = L.marker([f.lat,f.lng], {icon:divIcon}).addTo(grupoFocos);
+  const confPct = Math.round(f.confianca*100);
+  const nivelConf = f.confianca>=0.8 ? "Alta" : (f.confianca>=0.7 ? "Média" : "Baixa");
+  const corConf = f.confianca>=0.8 ? RISK_HEX.baixo : (f.confianca>=0.7 ? RISK_HEX.medio : RISK_HEX.alto);
+  const temFotoReal = !!f.foto;
+  const srcImagem = temFotoReal ? f.foto : FOCO_IMG[f.tipo];
+  const textoImagem = temFotoReal ? "Ver foto do foco" : "Ver imagem de exemplo da detecção";
+  marker.bindPopup(`
+    <div class="popup-card">
+      <div class="popup-head">${icon("drone",15)}<h4>Foco detectado por drone</h4></div>
+      <table>
+        <tr><td>ID</td><td><b>${f.id}</b></td></tr>
+        <tr><td>Tipo</td><td>${f.tipo[0].toUpperCase()+f.tipo.slice(1)}</td></tr>
+        <tr><td>Confiança IA</td><td><b style="color:${corConf}">${confPct}% (${nivelConf})</b></td></tr>
+        <tr><td>Data</td><td>${formatarData(f.data)}</td></tr>
+        <tr><td>Bairro</td><td>${f.bairro}</td></tr>
+        ${f.semGPS ? `<tr><td>Localização</td><td style="color:var(--text-faint)">Aproximada (sem fix de GPS)</td></tr>` : ""}
+      </table>
+      <div class="popup-image-link" onclick="abrirLightboxFoco('${f.id}')">
+        <img src="${srcImagem}" alt="">
+        ${textoImagem}
+      </div>
+    </div>
+  `);
+  focoMarkers[f.id] = marker;
   return marker;
 }
 
@@ -1818,6 +1846,104 @@ function atualizarTudoAposMudancaDeCasos(){
   renderCasos();
   atualizarPeriodoSlider();
   aplicarModoVisualizacao();
+}
+
+/* =========================================================
+   IMPORTAR FOCOS — o script drone/detectar_foco.py salva o CSV
+   (sempre o mesmo arquivo, uma linha por foco) e as fotos na
+   Área de Trabalho. Aqui o usuário seleciona esse CSV junto com
+   as fotos e o dashboard casa cada foco com sua foto pelo nome
+   do arquivo (coluna origem_imagem) e adiciona/atualiza no mapa.
+   Isso só muda os dados desta sessão do navegador — não grava
+   nada de volta no repositório.
+   ========================================================= */
+function lerArquivoComoTexto(file){
+  return new Promise((resolve, reject)=>{
+    const r = new FileReader();
+    r.onload = ()=>resolve(r.result);
+    r.onerror = ()=>reject(r.error);
+    r.readAsText(file, "utf-8");
+  });
+}
+function lerArquivoComoDataURL(file){
+  return new Promise((resolve, reject)=>{
+    const r = new FileReader();
+    r.onload = ()=>resolve(r.result);
+    r.onerror = ()=>reject(r.error);
+    r.readAsDataURL(file);
+  });
+}
+
+function mostrarStatusImportacao(msg, tipo){
+  const el = document.getElementById("import-status");
+  el.textContent = msg;
+  el.className = "import-status show" + (tipo ? " " + tipo : "");
+  clearTimeout(mostrarStatusImportacao._t);
+  mostrarStatusImportacao._t = setTimeout(()=>{ el.classList.remove("show"); }, 8000);
+}
+
+async function importarFocosArquivos(files){
+  const arquivos = Array.from(files);
+  const arquivoCSV = arquivos.find(f => f.name.toLowerCase().endsWith(".csv"));
+  if(!arquivoCSV){
+    mostrarStatusImportacao("Selecione também o arquivo .csv salvo pelo detectar_foco.py.", "erro");
+    return;
+  }
+  const imagensPorNome = {};
+  arquivos.filter(f => f !== arquivoCSV).forEach(f => { imagensPorNome[f.name] = f; });
+
+  let novosFocos;
+  try{
+    const texto = await lerArquivoComoTexto(arquivoCSV);
+    novosFocos = focosDoCSV(parseCSV(texto));
+  } catch(e){
+    mostrarStatusImportacao("Não foi possível ler esse CSV. Confira se é o arquivo certo.", "erro");
+    return;
+  }
+  if(!novosFocos.length){
+    mostrarStatusImportacao("O CSV não tem nenhum foco válido.", "erro");
+    return;
+  }
+
+  let adicionados = 0, atualizados = 0, comFoto = 0;
+  for(const f of novosFocos){
+    const arquivoImg = imagensPorNome[f.imagemNome];
+    if(arquivoImg){
+      try{ f.foto = await lerArquivoComoDataURL(arquivoImg); comFoto++; } catch(e){ /* segue sem foto */ }
+    }
+    const existente = FOCOS.find(x => x.id === f.id);
+    if(existente){
+      Object.assign(existente, f);
+      if(focoMarkers[f.id]){ grupoFocos.removeLayer(focoMarkers[f.id]); }
+      criarMarcadorFoco(existente);
+      atualizados++;
+    } else {
+      FOCOS.push(f);
+      criarMarcadorFoco(f);
+      adicionados++;
+    }
+  }
+
+  atualizarPoligonosBairros();
+  montarHeroMeta();
+  montarStats();
+
+  const partes = [];
+  if(adicionados) partes.push(`${adicionados} novo(s)`);
+  if(atualizados) partes.push(`${atualizados} atualizado(s)`);
+  mostrarStatusImportacao(
+    `Importação concluída: ${partes.join(", ") || "nenhuma mudança"} — ${comFoto} com foto anexada.`,
+    "ok"
+  );
+}
+
+function initImportarFocos(){
+  const input = document.getElementById("input-importar-focos");
+  document.getElementById("btn-importar-focos").addEventListener("click", ()=> input.click());
+  input.addEventListener("change", ()=>{
+    if(input.files.length) importarFocosArquivos(input.files);
+    input.value = "";
+  });
 }
 
 function initModalNovoCaso(){
