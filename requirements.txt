@@ -7,6 +7,9 @@ roboflow==1.4.0
 # Visão computacional
 opencv-python<5
 
+# GPS do drone (serial/NMEA)
+pyserial
+
 # Mapa interativo
 folium==0.20.0
 pandas==3.0.5

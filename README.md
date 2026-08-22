@@ -29,6 +29,18 @@ O AeroScan é um sistema de drone com IA que sobrevoa áreas de risco e detecta 
 
 ---
 
+## 🔄 Como o projeto funciona
+
+1. Drone voa sobre área de risco com câmera e módulo GPS conectados
+2. `drone/detectar_foco.py` processa cada frame com o modelo YOLOv8
+3. Foco detectado com confiança > 60% inicia contagem de 3 segundos
+4. Se mantiver acima de 60% por 3 segundos → foco confirmado
+5. GPS lê as coordenadas reais do módulo externo (protocolo NMEA)
+6. Foco é salvo automaticamente em `dashboard/focos_detectados_mvp.csv`
+7. Recarregar o dashboard mostra o novo marcador no mapa de Santa Rita do Sapucaí
+
+---
+
 ## 🗂️ Estrutura do Repositório
 
 ```
@@ -84,6 +96,18 @@ model = YOLO('runs/drone_v1/weights/best.pt')
 results = model.predict('sua_imagem.jpg', conf=0.25)  # imagem
 results = model.predict('video_drone.mp4', conf=0.25, save=True)  # vídeo
 ```
+
+### Detecção persistente com GPS (modo drone em campo)
+```bash
+python drone/detectar_foco.py --porta /dev/ttyUSB0
+```
+| Flag | Descrição | Padrão |
+|------|-----------|--------|
+| `--porta` | Porta serial do GPS (Linux/Mac: `/dev/ttyUSB0`, Windows: `COM3`) | auto |
+| `--conf` | Confiança mínima para considerar detecção | `0.60` |
+| `--tempo` | Segundos mantendo o threshold para confirmar foco | `3` |
+| `--camera` | Índice da câmera | `0` |
+| `--sem-gps` | Modo sem GPS para testes em bancada | — |
 
 ---
 
