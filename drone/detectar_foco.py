@@ -24,6 +24,7 @@ Flags opcionais:
   --saida ~/Desktop       pasta onde salvar o CSV e as fotos (padrão: Área de Trabalho)
 """
 
+import os
 import cv2
 import csv
 import json
@@ -41,12 +42,28 @@ MODELO_PATH       = 'runs/drone_v1/weights/best.pt'
 CSV_NOME          = 'focos_detectados_mvp.csv'
 
 def pasta_area_trabalho():
-    """Área de Trabalho do usuário atual. Em qualquer idioma do Windows/Mac/Linux
-    a pasta real se chama 'Desktop' — só o nome exibido no Explorer é traduzido."""
-    desktop = Path.home() / 'Desktop'
-    if not desktop.exists():
-        desktop = Path.home()  # fallback: salva na pasta do usuário
-    return desktop
+    """Área de Trabalho (Desktop) do usuário atual.
+
+    Em máquinas Windows com o OneDrive fazendo backup de pastas conhecidas,
+    a Área de Trabalho real fica em outro lugar (ex.: 'OneDrive\\Área de
+    Trabalho') e pode até ter nome traduzido — não é sempre '~/Desktop'.
+    No Windows, perguntamos ao registro do Shell qual é o caminho real.
+    """
+    if os.name == 'nt':
+        try:
+            import winreg
+            chave = r'Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders'
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, chave) as k:
+                caminho, _ = winreg.QueryValueEx(k, 'Desktop')
+                caminho = Path(os.path.expandvars(caminho))
+                if caminho.exists():
+                    return caminho
+        except Exception:
+            pass
+    for candidata in (Path.home() / 'Desktop', Path.home() / 'OneDrive' / 'Desktop'):
+        if candidata.exists():
+            return candidata
+    return Path.home()  # último recurso
 
 class GPS:
     def __init__(self, porta=None, baudrate=9600):
