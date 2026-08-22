@@ -5,7 +5,11 @@ Projeto FETIN 2026 — Equipe 49
 Lógica:
   - IA detecta foco com confiança > 60%
   - Se mantiver por TEMPO_CONFIRMACAO segundos → confirma
-  - Lê GPS do módulo externo do drone (serial/NMEA)
+  - Localização de cada foco, em ordem de prioridade:
+      1) GPS real do módulo externo (serial/NMEA), se conectado
+      2) Localização aproximada pela rede (IP público, nível de
+         cidade — só usada se o GPS não estiver disponível/fixado)
+      3) 0.0, 0.0 se nada estiver disponível (ex.: sem internet)
   - Salva o CSV e as fotos na Área de Trabalho (Desktop), sempre no
     mesmo arquivo — cada nova detecção só adiciona uma linha nele
   - Para levar os focos para o site, use o botão "Importar focos"
@@ -21,6 +25,7 @@ Flags opcionais:
   --tempo 3               segundos para confirmar (padrão: 3)
   --camera 0              índice da câmera (padrão: 0)
   --sem-gps               modo sem GPS (usa coordenadas manuais)
+  --sem-rede              não tenta localização aproximada pela rede (IP)
   --saida ~/Desktop       pasta onde salvar o CSV e as fotos (padrão: Área de Trabalho)
 """
 
@@ -40,6 +45,8 @@ TEMPO_CONFIRMACAO = 3.0
 CLASSES           = ['pool', 'tire']
 MODELO_PATH       = 'runs/drone_v1/weights/best.pt'
 CSV_NOME          = 'focos_detectados_mvp.csv'
+CENTRO_CIDADE     = (-22.2535, -45.7040)  # Santa Rita do Sapucaí, MG
+RAIO_MAXIMO_KM    = 60  # além disso, a localização por rede é descartada
 
 def pasta_area_trabalho():
     """Área de Trabalho (Desktop) do usuário atual.
@@ -64,6 +71,40 @@ def pasta_area_trabalho():
         if candidata.exists():
             return candidata
     return Path.home()  # último recurso
+
+
+def distancia_km(p1, p2):
+    """Distância aproximada (haversine) em km entre dois pontos (lat, lon)."""
+    import math
+    lat1, lon1 = math.radians(p1[0]), math.radians(p1[1])
+    lat2, lon2 = math.radians(p2[0]), math.radians(p2[1])
+    dlat, dlon = lat2 - lat1, lon2 - lon1
+    a = math.sin(dlat/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin(dlon/2)**2
+    return 2 * 6371 * math.asin(math.sqrt(a))
+
+
+def localizar_por_rede(timeout=4):
+    """Localização aproximada a partir do IP público, via ipinfo.io.
+
+    Não precisa de GPS nem de Wi-Fi especial — só de internet. É bem
+    menos preciso que um GPS real: costuma acertar só o nível de
+    cidade/região (pode errar por vários quilômetros, ou até acertar
+    a cidade errada se a rede usa VPN/proxy). Usado só como um
+    fallback melhor que 0.0, 0.0 quando não há GPS disponível.
+    Faz uma única consulta HTTPS de saída para ipinfo.io — não envia
+    nada além do que qualquer acesso à internet já revela (o IP).
+    """
+    try:
+        import urllib.request
+        with urllib.request.urlopen('https://ipinfo.io/json', timeout=timeout) as resp:
+            dados = json.loads(resp.read().decode('utf-8'))
+        loc = dados.get('loc')
+        if not loc or ',' not in loc:
+            return None
+        lat_str, lon_str = loc.split(',', 1)
+        return (float(lat_str), float(lon_str))
+    except Exception:
+        return None
 
 class GPS:
     def __init__(self, porta=None, baudrate=9600):
@@ -263,6 +304,8 @@ def main():
     parser.add_argument('--tempo',   type=float, default=TEMPO_CONFIRMACAO)
     parser.add_argument('--camera',  type=int,   default=0)
     parser.add_argument('--sem-gps', action='store_true')
+    parser.add_argument('--sem-rede', action='store_true',
+                         help='Não tenta localização aproximada pela rede (IP) como alternativa ao GPS')
     parser.add_argument('--saida',   type=str,   default=None,
                          help='Pasta onde salvar o CSV e as fotos (padrão: Área de Trabalho)')
     args = parser.parse_args()
@@ -290,6 +333,24 @@ def main():
         gps_ativo = gps.iniciar()
     else:
         print('\n⚠️  Modo sem GPS ativo')
+
+    localizacao_rede = None
+    if not args.sem_rede:
+        print('\n🌐 Tentando localização aproximada pela rede (IP)...')
+        candidata = localizar_por_rede()
+        if not candidata:
+            print('  ⚠️  Sem internet ou serviço indisponível — usarei 0.0, 0.0 se o GPS também falhar.')
+        else:
+            dist = distancia_km(candidata, CENTRO_CIDADE)
+            if dist > RAIO_MAXIMO_KM:
+                print(f'  ⚠️  A rede aponta um local a {dist:.0f} km de Santa Rita do Sapucaí — precisão')
+                print(f'     ruim demais (geolocalização por IP costuma acertar só a região do provedor,')
+                print(f'     não a cidade exata). Descartando; usarei 0.0, 0.0 se o GPS também falhar.')
+            else:
+                localizacao_rede = candidata
+                print(f'  ✅ Localização aproximada: {localizacao_rede[0]:.4f}, {localizacao_rede[1]:.4f}'
+                      f' (~{dist:.0f} km do centro da cidade)')
+                print('     Ainda é nível de cidade/bairro, não o ponto exato — use --sem-rede para desativar.')
 
     print('\n📷 Abrindo câmera...')
     cap = cv2.VideoCapture(args.camera)
@@ -339,6 +400,8 @@ def main():
             focos_confirmados_sessao += 1
             if gps_ativo and gps.posicao:
                 lat, lon = gps.posicao
+            elif localizacao_rede:
+                lat, lon = localizacao_rede
             else:
                 lat, lon = 0.0, 0.0
             ts       = datetime.now().strftime('%Y%m%d_%H%M%S')
