@@ -98,6 +98,27 @@ function mesesNoPeriodo(inicio, fim) {
   return Math.max(1, (af - ai) * 12 + (mf - mi) + 1)
 }
 
+/**
+ * Período coberto pelos casos que estão no banco.
+ *
+ * Existe por causa de um defeito que passou para produção: sem `desde` e `ate`,
+ * o `mesesNoPeriodo` devolvia 12 e o fator de anualização virava 1 — mas a base
+ * cobre 24 meses. Resultado: chamar `/api/incidencia/bairros` sem data devolvia
+ * o DOBRO da incidência real, com o rótulo "/100 mil/ano" do lado.
+ *
+ * E era exatamente a chamada mais provável: quem integra começa sem filtro.
+ *
+ * A janela sai do dado, não de `meta`. `meta` traz o período DECLARADO, que é o
+ * que alguém escreveu na geração; MIN/MAX é o que de fato está lá. Se os dois
+ * discordarem, o certo para dividir casos é o segundo.
+ */
+async function periodoDosDados(db) {
+  const r = await db.prepare(
+    'SELECT MIN(data_entrada) AS inicio, MAX(data_entrada) AS fim FROM casos'
+  ).first()
+  return { inicio: r?.inicio ?? null, fim: r?.fim ?? null }
+}
+
 const ISO = /^\d{4}-\d{2}-\d{2}$/
 
 /**
@@ -141,7 +162,12 @@ function filtros(url) {
 /** Agrega casos por território e devolve a incidência anualizada do recorte. */
 async function incidencia(db, url, chave, tabela, popMinima) {
   const { where, args, desde, ate } = filtros(url)
-  const fator = 12 / mesesNoPeriodo(desde, ate)
+
+  // Sem data explícita, o recorte é o período INTEIRO que existe no banco —
+  // não 12 meses por omissão. Ver `periodoDosDados`.
+  const janela = (desde && ate) ? { inicio: desde, fim: ate } : await periodoDosDados(db)
+  const meses = mesesNoPeriodo(janela.inicio, janela.fim)
+  const fator = 12 / meses
 
   const { results } = await db.prepare(`
     SELECT t.${chave} AS territorio,
@@ -170,8 +196,13 @@ async function incidencia(db, url, chave, tabela, popMinima) {
   }))
 
   return json({
-    recorte: { desde: desde ?? null, ate: ate ?? null,
-               meses: mesesNoPeriodo(desde, ate), fator_anualizacao: fator },
+    recorte: {
+      desde: janela.inicio, ate: janela.fim, meses, fator_anualizacao: fator,
+      // Diz de onde saiu a janela. Quem consome precisa distinguir "pedi este
+      // recorte" de "a API usou tudo que tinha" — os dois produzem números
+      // diferentes para os mesmos casos.
+      origem: (desde && ate) ? 'filtro da requisição' : 'período completo do banco',
+    },
     metodo: {
       formula: 'casos / população × 100.000 × (12 / meses do recorte)',
       populacao_minima: popMinima,

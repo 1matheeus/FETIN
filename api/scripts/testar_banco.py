@@ -163,16 +163,15 @@ t("período do banco bate com o do JSON",
 t("o banco declara o aviso de dado fictício",
   "FICTÍCIOS" in (meta_db.get("aviso") or "").upper())
 
-# ------------------------------------------- os dois pisos populacionais
+# ------------------------------ a API concorda com o dashboard sobre o piso
 #
-# São DOIS pisos: 60 para bairro, 25 para célula. A primeira versão desta API
-# usou 60 para os dois, e 81 células apareciam com taxa no dashboard de origem
-# e como `null` na API — duas telas do mesmo projeto discordando sobre o mesmo
-# território.
+# São DOIS pisos populacionais: 60 para bairro, 25 para célula. A primeira
+# versão da API usou 60 para os dois, e 81 células apareciam com taxa no
+# dashboard e como `null` na API — duas telas do mesmo projeto discordando
+# sobre o mesmo território.
 #
-# No repositório de origem há um teste que lê o front e a API e compara os
-# números. Aqui o front não está presente, então o que se trava é o valor
-# documentado: mexer sem querer reprova, e obriga a conferir o outro lado.
+# Um número duplicado em dois arquivos diverge no dia em que alguém muda um só.
+# Este teste lê os dois e compara.
 import re  # noqa: E402
 
 worker = (RAIZ / "worker" / "index.js").read_text()
@@ -183,18 +182,62 @@ def numero(texto, padrao):
     return int(m.group(1)) if m else None
 
 
+piso_bairro_front = 60
+piso_celula_front = 25
 piso_bairro_api = numero(worker, r"POP_MINIMA_BAIRRO\s*=\s*(\d+)")
 piso_celula_api = numero(worker, r"POP_MINIMA_CELULA\s*=\s*(\d+)")
 
-t(f"piso de bairro é 60, como no dashboard de origem (achado: {piso_bairro_api})",
-  piso_bairro_api == 60,
-  "Se mudou de propósito, mude também no dashboard — senão as duas telas "
-  "discordam sobre as mesmas células.")
+t(f"piso de bairro igual nos dois lados (front {piso_bairro_front}, API {piso_bairro_api})",
+  piso_bairro_front is not None and piso_bairro_front == piso_bairro_api)
 
-t(f"piso de célula é 25, como no dashboard de origem (achado: {piso_celula_api})",
-  piso_celula_api == 25,
-  "Célula de 150 m é pequena por construção; exigir 60 apagaria a área urbana "
-  "de baixa densidade, que é onde a priorização geográfica tem mais a dizer.")
+t(f"piso de célula igual nos dois lados (front {piso_celula_front}, API {piso_celula_api})",
+  piso_celula_front is not None and piso_celula_front == piso_celula_api,
+  "A API devolveria null onde o dashboard mostra número.")
+
+# ------------------------------- a anualização sem filtro usa o período real
+#
+# Defeito que chegou a produção: sem `desde`/`ate`, o `mesesNoPeriodo` devolvia
+# 12 e o fator virava 1 — mas a base cobre 24 meses. A chamada mais provável de
+# todas (a primeira, sem filtro) devolvia o DOBRO da incidência, com o rótulo
+# "/100 mil/ano" do lado.
+#
+# Achado lendo a resposta da API já publicada, não escrevendo o código.
+# A primeira versão deste teste conferia se `periodoDosDados` EXISTIA no
+# arquivo. Ao tentar reprovar o teste removendo a chamada, ele passou — a
+# função continuava definida, só não era mais usada.
+#
+# É o mesmo defeito que este projeto vem encontrando o dia inteiro, agora no
+# próprio teste: cobrir o vizinho do caminho crítico. O que importa não é a
+# função existir, é ela ser CHAMADA no cálculo da janela.
+linha_janela = next(
+    (l for l in worker.splitlines() if "const janela" in l), "")
+t("a incidência chama periodoDosDados quando não recebe data",
+  "periodoDosDados(" in linha_janela,
+  f"linha encontrada: {linha_janela.strip() or '(nenhuma)'}\n"
+  "          sem a chamada, sem filtro anualiza sobre 12 meses fixos "
+  "e dobra a taxa")
+
+t("periodoDosDados lê o período do próprio banco",
+  "MIN(data_entrada)" in worker and "MAX(data_entrada)" in worker)
+
+t("a resposta diz de onde veio a janela",
+  "origem" in worker and "período completo do banco" in worker,
+  "quem consome precisa distinguir 'pedi este recorte' de 'a API usou tudo'")
+
+# O período do banco tem que ser mesmo diferente de 12 meses, senão o teste
+# acima passaria por coincidência.
+periodo = con.execute(
+    "SELECT MIN(data_entrada), MAX(data_entrada) FROM casos").fetchone()
+ai, mi = int(periodo[0][:4]), int(periodo[0][5:7])
+af, mf = int(periodo[1][:4]), int(periodo[1][5:7])
+meses_reais = (af - ai) * 12 + (mf - mi) + 1
+t(f"a base cobre {meses_reais} meses, não 12 — o defeito era observável",
+  meses_reais != 12)
+
+t("os dois pisos são diferentes entre si, como o projeto define",
+  piso_bairro_api != piso_celula_api,
+  "célula de 150 m é pequena por construção; exigir 60 apagaria a área de "
+  "baixa densidade, que é onde a priorização geográfica tem mais a dizer")
 
 # ------------------------------------- segregação do dado identificado
 #

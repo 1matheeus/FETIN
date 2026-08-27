@@ -945,7 +945,7 @@ async function buscarCSV(caminho){
    Trocar API_BASE por "" desliga a integração e volta tudo ao comportamento
    anterior: é a forma de reverter sem mexer em mais nada.
    ========================================================= */
-const API_BASE = "https://projetofetin.SUBDOMINIO.workers.dev/api";
+const API_BASE = "https://projetofetin.eduardo-filhagosa.workers.dev/api";
 
 async function buscarAPI(rota){
   const resp = await fetch(`${API_BASE}${rota}`, {cache:"no-store"});
@@ -1044,7 +1044,7 @@ function focosDoCSV(linhas){
 let FONTE_DOS_DADOS = "estáticos";
 
 async function carregarDados(){
-  if(API_BASE && !API_BASE.includes("SUBDOMINIO")){
+  if(API_BASE){
     try{
       const [casos, focos] = await Promise.all([
         buscarAPI("/casos?limite=5000"),
