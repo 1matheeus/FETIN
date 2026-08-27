@@ -187,6 +187,27 @@ piso_celula_front = 25
 piso_bairro_api = numero(worker, r"POP_MINIMA_BAIRRO\s*=\s*(\d+)")
 piso_celula_api = numero(worker, r"POP_MINIMA_CELULA\s*=\s*(\d+)")
 
+# ------------------------- o filtro de território vale nos dois lados do JOIN
+#
+# Valia só na subconsulta. `?bairro=Centro` devolvia os 58 bairros: o Centro com
+# seus casos e os outros 57 com "casos: 0, incidencia: 0" — porque o LEFT JOIN
+# preserva as linhas da tabela externa.
+#
+# Não era só ruído: a resposta AFIRMAVA que Anchieta tem zero caso, quando tem
+# 67. Um cliente que lesse aquilo publicaria número falso, e nada denunciava.
+#
+# Achado lendo a resposta da API publicada — mesmo caminho do defeito da
+# anualização.
+t("o filtro de território restringe também a tabela externa",
+  "ondeExterno" in worker and "argsExterno" in worker,
+  "sem isso, filtrar por um bairro devolve todos os outros zerados")
+
+linha_join = next((l for l in worker.splitlines() if "ondeExterno}" in l), "")
+t("o WHERE externo entra na consulta, não só é declarado",
+  linha_join.strip().startswith("${ondeExterno}"),
+  f"linha encontrada: {linha_join.strip() or '(nenhuma)'}")
+
+
 t(f"piso de bairro igual nos dois lados (front {piso_bairro_front}, API {piso_bairro_api})",
   piso_bairro_front is not None and piso_bairro_front == piso_bairro_api)
 

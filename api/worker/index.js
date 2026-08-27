@@ -169,6 +169,25 @@ async function incidencia(db, url, chave, tabela, popMinima) {
   const meses = mesesNoPeriodo(janela.inicio, janela.fim)
   const fator = 12 / meses
 
+  /*
+   * O filtro de território precisa valer nos DOIS lados do LEFT JOIN.
+   *
+   * Antes valia só na subconsulta. Chamar `?bairro=Centro` devolvia os 58
+   * bairros: o Centro com seus 64 casos, e os outros 57 com `casos: 0,
+   * incidencia: 0` — porque o LEFT JOIN preserva as linhas da tabela externa e
+   * o COUNT de nenhuma correspondência dá zero.
+   *
+   * O resultado não era só ruído: a resposta AFIRMAVA que Anchieta tem zero
+   * caso, quando tem 67. Um cliente que lesse aquilo publicaria um número
+   * falso, e nada na resposta denunciava.
+   *
+   * Achado lendo a resposta da API publicada — o mesmo caminho pelo qual
+   * apareceu o defeito da anualização.
+   */
+  const filtroTerritorio = url.searchParams.get(chave)
+  const ondeExterno = filtroTerritorio ? `WHERE t.${chave} = ?` : ''
+  const argsExterno = filtroTerritorio ? [filtroTerritorio] : []
+
   const { results } = await db.prepare(`
     SELECT t.${chave} AS territorio,
            t.populacao AS populacao,
@@ -177,9 +196,10 @@ async function incidencia(db, url, chave, tabela, popMinima) {
            SUM(CASE WHEN c.desfecho = 'Óbito' THEN 1 ELSE 0 END) AS obitos
       FROM ${tabela} t
       LEFT JOIN (SELECT * FROM casos ${where}) c ON c.${chave} = t.${chave}
+     ${ondeExterno}
      GROUP BY t.${chave}
      ORDER BY casos DESC
-  `).bind(...args).all()
+  `).bind(...args, ...argsExterno).all()
 
   const linhas = results.map((r) => ({
     [chave]: r.territorio,
