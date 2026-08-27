@@ -10,6 +10,8 @@ Lógica:
       2) Localização aproximada pela rede (IP público, nível de
          cidade — só usada se o GPS não estiver disponível/fixado)
       3) 0.0, 0.0 se nada estiver disponível (ex.: sem internet)
+  - Antes de gravar, a foto passa pelo borrão de rostos do blur_lgpd.py
+    — nenhuma imagem sai daqui sem anonimização
   - Salva o CSV e as fotos na Área de Trabalho (Desktop), sempre no
     mesmo arquivo — cada nova detecção só adiciona uma linha nele
   - Para levar os focos para o site, use o botão "Importar focos"
@@ -30,6 +32,7 @@ Flags opcionais:
 """
 
 import os
+import sys
 import cv2
 import csv
 import json
@@ -39,6 +42,11 @@ import threading
 from pathlib import Path
 from datetime import datetime
 from ultralytics import YOLO
+
+# blur_lgpd.py mora na mesma pasta. Rodando como `python drone/detectar_foco.py`
+# o Python já põe drone/ no sys.path, mas garantimos para quem importa daqui.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from blur_lgpd import anonimizar
 
 CONF_MINIMA       = 0.60
 TEMPO_CONFIRMACAO = 3.0
@@ -244,7 +252,7 @@ class RegistradorFocos:
             'latitude':           round(latitude, 6),
             'longitude':          round(longitude, 6),
             'confianca_ia':       round(confianca, 4),
-            'origem_imagem':      imagem_path or f'drone-{id_foco}.jpg',
+            'origem_imagem':      imagem_path or '',
             'status_verificacao': 'pendente',
             'id_area':            'AR-001',
         }
@@ -262,6 +270,29 @@ class RegistradorFocos:
         print(f'     → Salvo em: {self.csv_path}')
         print(f'     → No site, clique em "Importar focos" e selecione esse CSV + a foto.\n')
         return id_foco
+
+
+def salvar_foto_anonimizada(frame, destino):
+    """Grava a foto do foco com os rostos borrados.
+
+    Falha fechada, de propósito: se a anonimização não puder rodar, a foto
+    NÃO é salva e o foco entra no CSV sem imagem. Perder a foto de um foco é
+    um problema pequeno; publicar o rosto de um morador não é.
+
+    Devolve (caminho_salvo_ou_None, quantidade_de_rostos_borrados).
+    """
+    try:
+        frame_anonimo, rostos = anonimizar(frame)
+    except Exception as e:
+        print(f'  ⚠️  Anonimização falhou ({e}).')
+        print('     A foto NÃO foi salva — o foco entra no CSV sem imagem.')
+        return None, 0
+
+    if not cv2.imwrite(str(destino), frame_anonimo):
+        print(f'  ⚠️  Não foi possível gravar {destino.name}.')
+        return None, rostos
+
+    return destino, rostos
 
 
 class DetectorPersistente:
@@ -407,8 +438,13 @@ def main():
             ts       = datetime.now().strftime('%Y%m%d_%H%M%S')
             img_nome = f'foco_{classe}_{ts}.jpg'
             img_path = saida_dir / img_nome
-            cv2.imwrite(str(img_path), frame)
-            registrador.registrar(classe, confianca, lat, lon, img_nome)
+
+            salvo, rostos_borrados = salvar_foto_anonimizada(frame, img_path)
+            if rostos_borrados:
+                print(f'  🔒 {rostos_borrados} rosto(s) borrado(s) antes de salvar.')
+
+            registrador.registrar(classe, confianca, lat, lon,
+                                  img_nome if salvo else None)
 
         frame_display = result.plot()
         h, w = frame_display.shape[:2]

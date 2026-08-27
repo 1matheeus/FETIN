@@ -1,7 +1,12 @@
 import cv2
+import sys
 import argparse
 import time
+from pathlib import Path
 from ultralytics import YOLO
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "drone"))
+from blur_lgpd import anonimizar
 
 WEIGHTS = "runs/drone_v1/weights/best.pt"
 CLASSES = ["pool", "tire"]
@@ -106,10 +111,19 @@ def run(source, conf):
         if key == ord("q"):
             break
         if key == ord("s"):
+            # O screenshot também passa pelo borrão: é a mesma câmera e o
+            # mesmo disco do detectar_foco.py, e a demo costuma rodar com
+            # gente na frente da lente.
+            try:
+                frame_anonimo, rostos = anonimizar(frame)
+            except Exception as e:
+                print(f"Anonimização falhou ({e}) — screenshot não salvo.")
+                continue
             screenshot_n += 1
             path = f"screenshot_{screenshot_n:03d}.jpg"
-            cv2.imwrite(path, frame)
-            print(f"Screenshot salvo: {path}")
+            cv2.imwrite(path, frame_anonimo)
+            extra = f" — {rostos} rosto(s) borrado(s)" if rostos else ""
+            print(f"Screenshot salvo: {path}{extra}")
 
     cap.release()
     cv2.destroyAllWindows()

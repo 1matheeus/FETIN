@@ -28,22 +28,33 @@ from datetime import datetime
 OUTPUT_DIR     = Path("blur_output")
 LOG_FILE       = OUTPUT_DIR / "blur_log.json"
 BLUR_INTENSITY = 30        # quanto mais alto, mais borrado (múltiplo de 2 + 1)
-CONF_MINIMA    = 1.03      # fator de escala do detector (não alterar)
+FATOR_ESCALA   = 1.03      # scaleFactor do Haar cascade (não alterar)
 VIZINHOS_MIN   = 5         # mínimo de vizinhos para detectar rosto (mais alto = menos falsos positivos)
 TAMANHO_MIN    = (30, 30)  # tamanho mínimo do rosto em pixels
 
 # ─────────────────────────────────────────
-# CARREGA DETECTOR DE ROSTOS (Haar Cascade)
-# Já vem incluso no OpenCV — sem download extra
+# DETECTOR DE ROSTOS (Haar Cascade)
+# Já vem incluso no OpenCV — sem download extra.
+# O carregamento é preguiçoso de propósito: este módulo é importado pelo
+# detectar_foco.py, e uma falha aqui não pode derrubar a importação. Ela
+# precisa chegar a quem chama, que decide o que fazer (ver `anonimizar`).
 # ─────────────────────────────────────────
-CASCADE_PATH = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-CASCADE_PERFIL = cv2.data.haarcascades + 'haarcascade_profileface.xml'
+CASCADE_FRONTAL = 'haarcascade_frontalface_default.xml'
+CASCADE_PERFIL  = 'haarcascade_profileface.xml'
 
-detector_frontal = cv2.CascadeClassifier(CASCADE_PATH)
-detector_perfil  = cv2.CascadeClassifier(CASCADE_PERFIL)
+_detectores = None
 
-if detector_frontal.empty():
-    raise RuntimeError("❌ Detector de rostos não encontrado. Reinstale o OpenCV.")
+
+def carregar_detectores():
+    """Carrega os cascades uma única vez, na primeira chamada."""
+    global _detectores
+    if _detectores is None:
+        frontal = cv2.CascadeClassifier(cv2.data.haarcascades + CASCADE_FRONTAL)
+        perfil  = cv2.CascadeClassifier(cv2.data.haarcascades + CASCADE_PERFIL)
+        if frontal.empty():
+            raise RuntimeError("Detector de rostos não encontrado. Reinstale o OpenCV.")
+        _detectores = (frontal, perfil)
+    return _detectores
 
 # ─────────────────────────────────────────
 # FUNÇÕES
@@ -51,29 +62,43 @@ if detector_frontal.empty():
 
 def detectar_rostos(imagem_cinza):
     """Detecta rostos frontais e de perfil na imagem."""
-    rostos_frontais = detector_frontal.detectMultiScale(
-        imagem_cinza,
-        scaleFactor=CONF_MINIMA,
-        minNeighbors=VIZINHOS_MIN,
-        minSize=TAMANHO_MIN,
-        flags=cv2.CASCADE_SCALE_IMAGE,
-    )
-
-    rostos_perfil = detector_perfil.detectMultiScale(
-        imagem_cinza,
-        scaleFactor=CONF_MINIMA,
-        minNeighbors=VIZINHOS_MIN,
-        minSize=TAMANHO_MIN,
-        flags=cv2.CASCADE_SCALE_IMAGE,
-    )
+    detector_frontal, detector_perfil = carregar_detectores()
 
     rostos = []
-    if len(rostos_frontais) > 0:
-        rostos.extend(rostos_frontais.tolist())
-    if len(rostos_perfil) > 0:
-        rostos.extend(rostos_perfil.tolist())
+    for detector in (detector_frontal, detector_perfil):
+        if detector.empty():
+            continue
+        encontrados = detector.detectMultiScale(
+            imagem_cinza,
+            scaleFactor=FATOR_ESCALA,
+            minNeighbors=VIZINHOS_MIN,
+            minSize=TAMANHO_MIN,
+            flags=cv2.CASCADE_SCALE_IMAGE,
+        )
+        if len(encontrados) > 0:
+            rostos.extend(encontrados.tolist())
 
     return rostos
+
+
+def anonimizar(imagem):
+    """Borra todos os rostos de um frame BGR.
+
+    É a porta de entrada para quem só quer a imagem anonimizada, sem lidar
+    com conversão de cor nem com a lista de rostos: `detectar_foco.py` e
+    `demo.py` chamam esta função antes de gravar qualquer foto em disco.
+
+    Devolve (imagem_borrada, quantidade_de_rostos). A imagem devolvida é
+    sempre uma cópia — o frame original não é alterado.
+    """
+    cinza = cv2.cvtColor(imagem, cv2.COLOR_BGR2GRAY)
+    cinza = cv2.equalizeHist(cinza)
+
+    rostos = detectar_rostos(cinza)
+    if not rostos:
+        return imagem.copy(), 0
+
+    return aplicar_blur(imagem, rostos), len(rostos)
 
 
 def aplicar_blur(imagem, rostos, intensidade=BLUR_INTENSITY):
@@ -104,18 +129,9 @@ def processar_imagem(caminho_entrada, dir_saida):
         print(f"  ⚠️  Não foi possível ler: {caminho.name}")
         return None
 
-    cinza = cv2.cvtColor(imagem, cv2.COLOR_BGR2GRAY)
-    cinza = cv2.equalizeHist(cinza)
-
-    rostos = detectar_rostos(cinza)
-    qtd    = len(rostos)
-
-    if qtd > 0:
-        imagem_saida = aplicar_blur(imagem, rostos)
-        status = f"✅ {qtd} rosto(s) borrado(s)"
-    else:
-        imagem_saida = imagem.copy()
-        status = "✔  Nenhum rosto detectado"
+    imagem_saida, qtd = anonimizar(imagem)
+    status = (f"✅ {qtd} rosto(s) borrado(s)" if qtd
+              else "✔  Nenhum rosto detectado")
 
     nome_saida = dir_saida / f"blur_{caminho.name}"
     cv2.imwrite(str(nome_saida), imagem_saida)

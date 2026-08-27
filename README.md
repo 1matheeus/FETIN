@@ -36,9 +36,10 @@ O AeroScan é um sistema de drone com IA que sobrevoa áreas de risco e detecta 
 3. Foco detectado com confiança > 60% inicia contagem de 3 segundos
 4. Se mantiver acima de 60% por 3 segundos → foco confirmado
 5. GPS lê as coordenadas reais do módulo externo (protocolo NMEA)
-6. Foco (com foto) é salvo na Área de Trabalho — sempre no mesmo arquivo
+6. A foto passa pelo borrão de rostos antes de ir para o disco
+7. Foco (com foto) é salvo na Área de Trabalho — sempre no mesmo arquivo
    `focos_detectados_mvp.csv`, uma linha adicionada por detecção
-7. No dashboard, o botão **Importar focos** (seção Mapa de risco) permite selecionar esse CSV + as
+8. No dashboard, o botão **Importar focos** (seção Mapa de risco) permite selecionar esse CSV + as
    fotos da Área de Trabalho para colocá-los no mapa
 
 ---
@@ -219,7 +220,28 @@ model.train(
 
 ## 🔒 Privacidade e LGPD
 
-Todas as imagens passam por anonimização automática antes de serem armazenadas. Rostos são detectados e borrados em tempo real — nenhum dado biométrico é salvo ou transmitido.
+Nenhuma foto é gravada em disco sem passar antes pelo borrão de rostos. Tanto o
+`drone/detectar_foco.py` (foto do foco confirmado) quanto o `demo.py`
+(screenshot com a tecla `S`) chamam `anonimizar()` do `drone/blur_lgpd.py`
+imediatamente antes do `cv2.imwrite` — o frame original nunca chega ao disco.
+
+O comportamento é **falha fechada**: se a anonimização não puder rodar (OpenCV
+sem os cascades, por exemplo), a foto não é salva e o foco entra no CSV sem
+imagem. Perder a foto de um foco é um problema pequeno; publicar o rosto de um
+morador não é.
+
+Três limites que vale declarar, porque a detecção não é perfeita:
+
+- O detector é Haar cascade frontal + perfil. Rosto muito pequeno (< 30 px),
+  de costas, ou sob ângulo fechado pode passar sem ser borrado.
+- O borrão cobre rosto, não os demais identificadores que uma imagem aérea pode
+  conter — placa de veículo, número de casa, correspondência à vista.
+- A verificação está travada por `drone/testar_anonimizacao.py`. Rode antes de
+  qualquer alteração no caminho de gravação de imagem:
+
+```bash
+python drone/testar_anonimizacao.py
+```
 
 ---
 
