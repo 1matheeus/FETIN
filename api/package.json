@@ -1,0 +1,14 @@
+{
+  "name": "fetin-api-vigilancia",
+  "private": true,
+  "version": "1.0.0",
+  "description": "API de vigilância epidemiológica sobre Cloudflare D1 — Santa Rita do Sapucaí/MG. Projeto FETIN 2026.",
+  "scripts": {
+    "banco:exportar": "python3 scripts/exportar_para_banco.py",
+    "banco:aplicar": "npx wrangler d1 execute vigilancia --remote --file=db/schema.sql && npx wrangler d1 execute vigilancia --remote --file=db/carga.sql",
+    "banco:local": "npx wrangler d1 execute vigilancia --local --file=db/schema.sql && npx wrangler d1 execute vigilancia --local --file=db/carga.sql",
+    "api:local": "npx wrangler dev --local",
+    "deploy": "npx wrangler deploy",
+    "teste": "python3 scripts/testar_banco.py"
+  }
+}
