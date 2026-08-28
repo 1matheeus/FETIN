@@ -1,0 +1,50 @@
+{
+  // Configuração do deploy da API no Cloudflare.
+  //
+  // POR QUE ESTE ARQUIVO EXISTE
+  // ---------------------------
+  // Sem ele, o `npx wrangler deploy` tenta ADIVINHAR a configuração, detecta
+  // Vite e tenta instalar o plugin Vite da Cloudflare, que exige Vite >= 6.
+  // Aqui não há Vite nenhum — mas a detecção acontece antes de o wrangler
+  // saber disso, e o deploy falha com uma mensagem que não tem relação com o
+  // problema. Declarar a configuração faz ele parar de adivinhar.
+
+  // ESTA É A CASA DA API. Não há outra cópia.
+  //
+  // Houve, por alguns dias: o `worker/index.js` vivia também no repositório da
+  // priorização geográfica, e os dois wrangler.jsonc declaravam o mesmo nome de
+  // Worker. Um deploy de um lado substituía o do outro, sem aviso. E uma
+  // correção — a da anualização, que fazia a API dobrar a incidência quando
+  // chamada sem filtro — teve de ser aplicada nas duas à mão.
+  //
+  // A duplicação acabou: o outro repositório não deploya mais nada e mantém
+  // apenas o pipeline que GERA o dado. O snapshot que este banco carrega vem de
+  // lá, e a proveniência está em `dados/PROVENIENCIA.md`.
+  //
+  // O Worker serve SÓ a API. O painel do AeroScan continua no GitHub Pages e
+  // chama por HTTP — o CORS está liberado no worker justamente para isso.
+  "name": "projetofetin",
+  "compatibility_date": "2026-08-21",
+  "main": "worker/index.js",
+
+  // Banco D1 (SQLite gerenciado). JÁ EXISTE — foi criado com
+  // `npx wrangler d1 create vigilancia` e está carregado.
+  //
+  // O `database_id` não é segredo: identifica o banco, não autoriza acesso.
+  // Quem escreve nele precisa das credenciais da conta Cloudflare.
+  "d1_databases": [
+    {
+      // O binding é DB, não "vigilancia". O worker/index.js lê `env.DB`; o
+      // snippet que o `d1 create` imprime sugere usar o nome do banco como
+      // binding, e trocar quebraria com "Banco não vinculado" — erro difícil
+      // de rastrear até a causa.
+      "binding": "DB",
+      "database_name": "vigilancia",
+      "database_id": "659ee2d6-e140-42eb-a9fa-243929329da0"
+    }
+  ]
+
+  // Sem bloco `assets`: esta API não serve arquivos estáticos. O painel do
+  // AeroScan continua no GitHub Pages, onde já está, e chama esta API por
+  // HTTP — o CORS está liberado no worker justamente para isso.
+}

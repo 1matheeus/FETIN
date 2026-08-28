@@ -934,6 +934,70 @@ async function buscarCSV(caminho){
   return parseCSV(await resp.text());
 }
 
+/* =========================================================
+   API DE VIGILÂNCIA (api/ deste repositório)
+
+   Substitui os CSV como fonte primária: 2000 casos e 58 bairros no lugar de
+   15 casos e 4 bairros. Os CSV continuam como reserva — se a API não
+   responder, o painel cai neles e depois nos dados estáticos, sem tela de
+   erro. Ver api/docs/api-banco.md.
+
+   Trocar API_BASE por "" desliga a integração e volta tudo ao comportamento
+   anterior: é a forma de reverter sem mexer em mais nada.
+   ========================================================= */
+const API_BASE = "https://projetofetin.eduardo-filhagosa.workers.dev/api";
+
+async function buscarAPI(rota){
+  const resp = await fetch(`${API_BASE}${rota}`, {cache:"no-store"});
+  if(!resp.ok) throw new Error(`HTTP ${resp.status} em ${rota}`);
+  return resp.json();
+}
+
+/* Converte um caso da API para a forma que o painel já usa.
+
+   `endereco` é preenchido com a CÉLULA, não com uma rua. A API não publica
+   endereço: a coordenada que ela devolve é sorteada dentro de uma célula de
+   150 m, não a posição do domicílio. Manter o nome do campo evita mexer nos
+   sete lugares que já o consomem (busca, popup, tooltip, exportação, edição,
+   lista); o que muda é o texto exibido, que passa a dizer a verdade sobre a
+   precisão do dado. */
+function casosDaAPI(dados){
+  return dados.map(c => ({
+    id: c.id,
+    data: c.data_entrada,
+    bairro: c.bairro || "Área não classificada",
+    endereco: c.celula ? `Célula ${c.celula}` : "Localização aproximada",
+    celula: c.celula || null,
+    lat: c.lat_celula,
+    lng: c.lon_celula,
+    // O painel trabalha com dois estados; a API traz a classificação clínica
+    // completa, que é mais rica. Aqui só o suficiente para não quebrar nada —
+    // usar `classificacao` no lugar de `status` é outra mudança.
+    status: c.confirmado ? "confirmado" : "suspeito",
+    classificacao: c.classificacao || null,
+    faixaEtaria: c.faixa_etaria || null,
+    sexo: c.sexo || null,
+  })).filter(c => c.id && Number.isFinite(c.lat) && Number.isFinite(c.lng));
+}
+
+function focosDaAPI(dados){
+  return dados.map(f => ({
+    id: f.deteccao_id,
+    data: f.data_deteccao,
+    // A API usa o vocabulário do contrato de detecção; o painel espera o rótulo
+    // curto que já existe nos CSV.
+    tipo: f.classe === "piscina_sem_tratamento" ? "piscina"
+        : f.classe === "pneus_empilhados" ? "pneu"
+        : f.classe_origem || f.classe,
+    lat: f.lat,
+    lng: f.lon,
+    semGPS: false,
+    confianca: f.confianca,
+    bairro: f.bairro || "Centro",
+    imagemNome: f.origem_imagem || "",
+  })).filter(f => f.id && Number.isFinite(f.lat) && Number.isFinite(f.lng));
+}
+
 function casosDoCSV(linhas){
   return linhas.map(r => ({
     id: r.id_caso,
@@ -968,7 +1032,36 @@ function focosDoCSV(linhas){
   }).filter(f => f.id);
 }
 
+/* Fonte dos dados, em três degraus: API → CSV → estáticos.
+
+   Os três existem porque cada um falha por um motivo diferente. A API cai se
+   o Worker estiver fora ou a rede da feira não cooperar; os CSV caem se o
+   painel for aberto com duplo clique (o `file://` bloqueia fetch); os
+   estáticos são o piso que nunca falha.
+
+   Cada degrau avisa no console qual usou. Descobrir isso no meio de uma
+   demonstração, sem pista nenhuma, é o que se quer evitar. */
+let FONTE_DOS_DADOS = "estáticos";
+
 async function carregarDados(){
+  if(API_BASE){
+    try{
+      const [casos, focos] = await Promise.all([
+        buscarAPI("/casos?limite=5000"),
+        buscarAPI("/deteccoes"),
+      ]);
+      CASOS = casosDaAPI(casos.dados);
+      FOCOS = focosDaAPI(focos.dados);
+      if(!CASOS.length) throw new Error("API respondeu sem casos");
+      FONTE_DOS_DADOS = "API";
+      console.info(`Dados da API: ${CASOS.length} casos, ${FOCOS.length} focos, `
+        + `${new Set(CASOS.map(c=>c.bairro)).size} bairros.`);
+      return;
+    } catch(e){
+      console.warn("API indisponível, tentando os CSV:", e);
+    }
+  }
+
   try{
     const [casosCSV, focosCSV] = await Promise.all([
       buscarCSV("casos_dengue_mvp.csv"),
@@ -977,10 +1070,12 @@ async function carregarDados(){
     CASOS = casosDoCSV(casosCSV);
     FOCOS = focosDoCSV(focosCSV);
     if(!CASOS.length || !FOCOS.length) throw new Error("CSV vazio ou em formato inesperado");
+    FONTE_DOS_DADOS = "CSV";
   } catch(e){
     console.warn("Não foi possível carregar os CSVs ao vivo, usando dados de exemplo:", e);
     CASOS = DADOS_FALLBACK_CASOS.slice();
     FOCOS = DADOS_FALLBACK_FOCOS.slice();
+    FONTE_DOS_DADOS = "estáticos";
     mostrarAvisoFallback();
   }
 }
@@ -1047,7 +1142,26 @@ const FOCO_IMG = {piscina:"../demo_result.jpg", pneu:"../demo_result_tire.jpg"};
 const BONUS_PROXIMIDADE = { "Centro":4, "Jardim Santo Antônio":2, "Jardim das Flores":0, "Por do Sol":0 };
 
 function calcularBairros(){
-  const nomes = Object.keys(BAIRRO_POLIGONOS);
+  /* Antes: `Object.keys(BAIRRO_POLIGONOS)` — os 4 bairros com contorno
+     traçado. Com os CSV isso bastava, porque os CSV só tinham esses 4.
+
+     Com a API são 58 bairros, e apenas 152 dos 2000 casos (8%) caem nos 4 com
+     polígono. Manter a lista fixa deixaria o mapa com 2000 marcadores e o
+     ranking dizendo respeito a 8% deles — sem nada na tela indicando isso.
+
+     Agora a lista sai do DADO, unida aos 4 conhecidos para que eles apareçam
+     mesmo sem casos no recorte. Bairro sem polígono simplesmente não recebe o
+     contorno no mapa; os marcadores e o ranking funcionam igual.
+
+     A FÓRMULA DO SCORE NÃO MUDOU. Continua `casos*2 + focos*3 + bônus`,
+     normalizada de 1 a 10. Trocar por incidência por habitante é a mudança
+     que de fato importa — e é decisão de design de quem mantém este painel,
+     não algo para entrar de carona numa troca de fonte de dados. */
+  const nomes = [...new Set([
+    ...Object.keys(BAIRRO_POLIGONOS),
+    ...CASOS.map(c => c.bairro),
+    ...FOCOS.map(f => f.bairro),
+  ])].filter(Boolean);
   const raw = {};
   nomes.forEach(nome=>{
     const casosBairro = CASOS.filter(c=>c.bairro===nome);
@@ -1557,6 +1671,15 @@ function montarMapa(){
   Object.values(BAIRROS).forEach(b=>{
     const coords = BAIRRO_POLIGONOS[b.nome];
     const centro = CENTRO_MAPA[b.nome];
+
+    // Com a API o ranking passou a cobrir os 58 bairros do dado, e só 4 têm
+    // contorno traçado. Sem esta guarda, `L.circle(undefined)` estoura no
+    // primeiro bairro sem polígono e o mapa inteiro não monta — falha total
+    // por causa de uma camada decorativa.
+    //
+    // Bairro sem contorno continua no ranking e continua com seus marcadores
+    // no mapa; o que falta é só o polígono colorido por cima.
+    if(!coords || !centro) return;
 
     // glow (efeito de calor, desfocado)
     const glow = L.circle(centro, {
