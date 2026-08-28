@@ -64,10 +64,17 @@ FETIN/
 │   ├── areas_risco_mvp.csv
 │   ├── casos_dengue_mvp.csv
 │   └── focos_detectados_mvp.csv
+├── api/                    ← API de vigilância epidemiológica (Cloudflare Worker + D1) — ver api/README.md
 ├── demo.py                ← Script de demo com câmera ao vivo
 ├── requirements.txt
 └── README.md
 ```
+
+### API de vigilância (opcional)
+
+O dashboard tenta primeiro uma API real (`api/`, Cloudflare Worker + banco D1) com a base completa de
+casos e bairros de Santa Rita do Sapucaí; se ela não responder, cai automaticamente nos CSV e depois nos
+dados estáticos — ver detalhes em [`api/README.md`](api/README.md) e [`api/docs/api-banco.md`](api/docs/api-banco.md).
 
 ---
 
@@ -151,17 +158,21 @@ para fins de demonstração do MVP — não usar com dados reais sem um backend 
 - **Visão geral** — KPIs (casos no último mês, bairro com mais casos, foco mais comum, confiança média
   da IA), comparação com a semana anterior, ranking de bairros por risco, gráfico de casos ao longo do
   tempo e as métricas do modelo YOLOv8.
-- **Mapa de risco** — zonas de calor com o contorno real de cada bairro (traçado a partir das ruas do
-  OpenStreetMap via Overpass API), com três modos de visualização: pins agrupados (clustering), calor
-  de todos os casos e calor por bairro (Leaflet.heat), além de um filtro por período para ver a evolução
-  semana a semana. Cada foco detectado tem um link para a foto real da detecção (ou uma imagem de
-  exemplo, se nenhuma foto foi importada).
+- **Mapa de risco** — zonas de calor por bairro, com três modos de visualização: pins agrupados
+  (clustering), calor de todos os casos e calor por bairro (Leaflet.heat), além de um filtro por período
+  (calendário) para ver a evolução ao longo do tempo. Cada foco detectado tem um link para a foto real da
+  detecção (ou uma imagem de exemplo, se nenhuma foto foi importada). Centro, Jardim Santo Antônio,
+  Jardim das Flores e Por do Sol têm contorno traçado nas ruas reais (OpenStreetMap via Overpass API);
+  os demais bairros que vêm da API de vigilância (ver abaixo) ganham um território gerado a partir da
+  própria distribuição espacial dos casos — um diagrama de Voronoi centrado no centróide de cada bairro,
+  recortado na área da cidade, para que o mapa inteiro fique dividido em células vizinhas sem sobreposição.
 - **Importar focos** — botão que abre um seletor de arquivos para escolher o
   `focos_detectados_mvp.csv` salvo pelo `drone/detectar_foco.py` na Área de Trabalho, junto com as
   fotos. O dashboard casa cada foco com sua foto pelo nome do arquivo e adiciona/atualiza os marcadores
   no mapa (só nesta sessão do navegador — para tornar permanente, substitua o CSV do repositório).
-- **Casos notificados** — lista completa com busca e filtros, cadastro de novos casos (com foto opcional
-  do local), edição e exclusão, e exportação para CSV.
+- **Casos notificados** — lista paginada (20 por página) com busca, filtro por status e por bairro
+  (dropdown — a API de vigilância traz 58+ bairros, chip por bairro não era mais viável), cadastro de
+  novos casos (com foto opcional do local), edição e exclusão, e exportação para CSV.
 - **Sobre o projeto** — metodologia, métricas do modelo e equipe.
 - **Modo escuro**, navegação com scroll suave entre seções e exportação de relatório (PDF via impressão
   do navegador).
