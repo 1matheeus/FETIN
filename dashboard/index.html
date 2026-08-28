@@ -390,6 +390,16 @@
   }
   .chip:hover{border-color:var(--accent);color:var(--accent-ink);}
   .chip.active{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .filter-select{
+    padding:8px 32px 8px 15px;border-radius:999px;border:1.5px solid var(--border);background:var(--surface);
+    font-size:12.5px;font-weight:500;color:var(--text-muted);cursor:pointer;font-family:inherit;
+    outline:none;transition:.15s;
+    appearance:none;-webkit-appearance:none;
+    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%2367707a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>');
+    background-repeat:no-repeat;background-position:right 10px center;background-size:15px;
+  }
+  .filter-select:hover{border-color:var(--accent);color:var(--accent-ink);}
+  .filter-select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
 
   .cases-list{
     background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);
@@ -452,9 +462,15 @@
     color:var(--text-muted);cursor:pointer;transition:.15s;font-family:inherit;white-space:nowrap;
   }
   .segmented button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm);}
-  .period-control{display:flex;align-items:center;gap:10px;flex:1;min-width:220px;}
-  .period-control input[type=range]{flex:1;accent-color:var(--accent);}
-  .period-label{font-size:12px;color:var(--text-muted);white-space:nowrap;font-weight:600;min-width:82px;}
+  .period-control{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .period-date-input{
+    padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);
+    font-size:12.5px;font-family:inherit;background:var(--surface);color:var(--text);
+    outline:none;transition:border .15s,box-shadow .15s;cursor:pointer;
+  }
+  .period-date-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  :root[data-theme="dark"] .period-date-input{color-scheme:dark;}
+  .period-label{font-size:12px;color:var(--text-muted);white-space:nowrap;font-weight:600;}
   .period-reset{
     background:none;border:none;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;
     font-family:inherit;padding:4px;white-space:nowrap;
@@ -506,6 +522,7 @@
   .rank-bar-outer{flex:1;height:10px;background:var(--surface-2);border-radius:6px;overflow:hidden;border:1px solid var(--border);}
   .rank-bar-inner{height:100%;border-radius:6px;}
   .rank-score{width:42px;text-align:right;font-size:12px;font-weight:700;color:var(--text);flex-shrink:0;}
+  .rank-more{margin-top:12px;font-size:11.5px;color:var(--text-faint);text-align:center;}
 
   .trend-badge{
     display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;
@@ -529,6 +546,8 @@
   .metric-row b{font-size:15px;}
   .team-row{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:13px;}
   .team-row .avatar{width:26px;height:26px;font-size:11px;}
+  .team-row a{color:var(--accent-ink);text-decoration:none;font-weight:600;}
+  .team-row a:hover{text-decoration:underline;}
   .tech-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
 
   @media (max-width:860px){ .sobre-grid{grid-template-columns:1fr;} }
@@ -669,8 +688,8 @@
         <button data-modo="calor-bairro">Calor por bairro</button>
       </div>
       <div class="period-control">
-        <span class="period-label" id="period-label">Todo o período</span>
-        <input type="range" id="period-slider" min="0" max="0" value="0" step="1">
+        <span class="period-label">Até</span>
+        <input type="date" id="period-date" class="period-date-input">
         <button class="period-reset" id="period-reset">Redefinir</button>
       </div>
       <button class="toolbar-btn" id="btn-importar-focos">
@@ -699,7 +718,7 @@
         <input type="text" id="f-busca" placeholder="Buscar por rua, ID ou bairro...">
       </div>
       <div class="chip-group" id="f-status"></div>
-      <div class="chip-group" id="f-bairro"></div>
+      <select class="filter-select" id="f-bairro"></select>
       <button class="toolbar-btn" id="btn-exportar-csv"><span id="export-csv-icon"></span>Exportar CSV</button>
     </div>
     <div class="cases-list" id="cases-list"></div>
@@ -1426,10 +1445,20 @@ async function initApp(){
 function montarSobre(){
   document.getElementById("tech-tags").innerHTML = ["YOLOv8","OpenCV","Roboflow","Folium / Leaflet","Python"]
     .map(t=>`<span class="tag">${t}</span>`).join("");
-  document.getElementById("team-list").innerHTML = `
-    <div class="team-row"><div class="avatar">R</div><span>Rander D. Lemos — github.com/RanderDLemos</span></div>
-    <div class="team-row"><div class="avatar">?</div><span style="color:var(--text-faint)">Demais integrantes da Equipe 49 a definir</span></div>
-  `;
+  const equipe = [
+    {nome:"Rander D. Lemos",         github:"RanderDLemos"},
+    {nome:"Eduardo F. Guimarães",    github:"EduardoFGuimaraes"},
+    {nome:"Matheus Borges Mariano",  github:"1matheeus"},
+    {nome:"Matheus Reis",            github:null},
+  ];
+  document.getElementById("team-list").innerHTML = equipe.map(p=>`
+    <div class="team-row">
+      <div class="avatar">${p.nome[0]}</div>
+      <span>${p.nome}${p.github
+        ? ` — <a href="https://github.com/${p.github}" target="_blank" rel="noopener">@${p.github}</a>`
+        : ` <span style="color:var(--text-faint)">— GitHub a confirmar</span>`}</span>
+    </div>
+  `).join("");
 }
 
 function initExportButtons(){
@@ -1487,13 +1516,16 @@ function montarStats(){
   const trendTxt = (comp.delta > 0 ? "+" : "") + comp.pct + "%";
 
   const ranking = Object.values(BAIRROS).sort((a,b)=>b.score-a.score);
-  const rankingRows = ranking.map(b=>`
+  const TOP_RANKING = 10;
+  const rankingRows = ranking.slice(0, TOP_RANKING).map(b=>`
     <div class="rank-row">
       <span class="rank-name">${b.nome}</span>
       <div class="rank-bar-outer"><div class="rank-bar-inner" style="width:${b.score*10}%;background:${b.cor}"></div></div>
       <span class="rank-score">${b.score}/10</span>
     </div>
-  `).join("");
+  `).join("") + (ranking.length > TOP_RANKING
+    ? `<div class="rank-more">+ ${ranking.length - TOP_RANKING} outros bairros monitorados</div>`
+    : "");
 
   document.getElementById("stats-grid").innerHTML = `
     <div class="stat-card">
@@ -1863,27 +1895,21 @@ function aplicarModoVisualizacao(){
 
 function atualizarPeriodoSlider(){
   const datas = datasOrdenadas();
-  const slider = document.getElementById("period-slider");
-  slider.max = Math.max(0, datas.length - 1);
-  slider.value = slider.max;
+  const input = document.getElementById("period-date");
+  if(datas.length){
+    input.min = datas[0];
+    input.max = datas[datas.length - 1];
+  }
+  input.value = "";
   dataMaxSelecionada = null;
-  document.getElementById("period-label").textContent = "Todo o período";
 }
 
 function initMapaControles(){
   atualizarPeriodoSlider();
   aplicarModoVisualizacao();
 
-  document.getElementById("period-slider").addEventListener("input", e=>{
-    const datas = datasOrdenadas();
-    const idx = parseInt(e.target.value, 10);
-    if(idx >= datas.length - 1){
-      dataMaxSelecionada = null;
-      document.getElementById("period-label").textContent = "Todo o período";
-    } else {
-      dataMaxSelecionada = datas[idx];
-      document.getElementById("period-label").textContent = "Até " + formatarData(dataMaxSelecionada);
-    }
+  document.getElementById("period-date").addEventListener("change", e=>{
+    dataMaxSelecionada = e.target.value || null;
     aplicarModoVisualizacao();
   });
 
@@ -2198,9 +2224,10 @@ function montarCasos(){
     <button class="chip" data-status="investigacao">Em investigação</button>
     <button class="chip" data-status="descartado">Descartados</button>
   `;
+  const bairrosOrdenados = bairrosUnicos.sort((a,b)=>a.localeCompare(b, "pt-BR"));
   document.getElementById("f-bairro").innerHTML = `
-    <button class="chip active" data-bairro="">Todos os bairros</button>
-    ${bairrosUnicos.map(b=>`<button class="chip" data-bairro="${b}">${b}</button>`).join("")}
+    <option value="">Todos os bairros (${bairrosOrdenados.length})</option>
+    ${bairrosOrdenados.map(b=>`<option value="${b}">${b}</option>`).join("")}
   `;
 
   document.getElementById("f-status").addEventListener("click", e=>{
@@ -2209,10 +2236,8 @@ function montarCasos(){
     document.querySelectorAll("#f-status .chip").forEach(c=>c.classList.toggle("active", c===btn));
     renderCasos();
   });
-  document.getElementById("f-bairro").addEventListener("click", e=>{
-    const btn = e.target.closest(".chip"); if(!btn) return;
-    filtroBairro = btn.dataset.bairro;
-    document.querySelectorAll("#f-bairro .chip").forEach(c=>c.classList.toggle("active", c===btn));
+  document.getElementById("f-bairro").addEventListener("change", e=>{
+    filtroBairro = e.target.value;
     renderCasos();
   });
   document.getElementById("f-busca").addEventListener("input", renderCasos);
