@@ -10,6 +10,11 @@ opencv-python<5
 # GPS do drone (serial/NMEA)
 pyserial
 
+# Localização por rede via Wi-Fi (serviço de Localização do SO) — opcional,
+# só é usada em drone/detectar_foco.py como alternativa ao GPS físico
+winsdk; sys_platform == "win32"
+pyobjc-framework-CoreLocation; sys_platform == "darwin"
+
 # Mapa interativo
 folium==0.20.0
 pandas==3.0.5

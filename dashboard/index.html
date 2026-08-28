@@ -257,6 +257,19 @@
   }
   .modal-submit:hover{background:var(--accent-ink);}
 
+  /* ---------- DATA SOURCE BANNER ---------- */
+  .data-source-banner{
+    display:none;align-items:flex-start;gap:10px;
+    background:var(--medio-soft);color:var(--text);border-bottom:1px solid var(--border);
+    padding:11px 28px;font-size:12.5px;line-height:1.6;
+  }
+  .data-source-banner.show{display:flex;}
+  .data-source-banner svg{width:16px;height:16px;color:#a06913;flex-shrink:0;margin-top:1px;}
+  .data-source-banner code{
+    background:rgba(0,0,0,.08);padding:1px 5px;border-radius:4px;font-size:11.5px;
+    font-family:ui-monospace,Consolas,monospace;
+  }
+
   /* ---------- HERO ---------- */
   .hero{
     background:var(--ink);color:#fff;padding:0;
@@ -406,6 +419,23 @@
   .case-right{display:flex;align-items:center;gap:12px;flex-shrink:0;}
   .case-id{font-size:11.5px;color:var(--text-faint);font-weight:600;font-family:ui-monospace,Consolas,monospace;}
   .empty-state{padding:48px 20px;text-align:center;color:var(--text-faint);font-size:13px;}
+
+  .cases-pagination{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    margin-top:16px;flex-wrap:wrap;
+  }
+  .cases-pagination .pag-info{font-size:12.5px;color:var(--text-muted);}
+  .pag-buttons{display:flex;align-items:center;gap:4px;}
+  .pag-btn{
+    min-width:32px;height:32px;padding:0 10px;border-radius:8px;border:1.5px solid var(--border);
+    background:var(--surface);color:var(--text-muted);font-size:12.5px;font-weight:600;cursor:pointer;
+    font-family:inherit;transition:.15s;display:flex;align-items:center;justify-content:center;
+  }
+  .pag-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent-ink);}
+  .pag-btn.active{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .pag-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .pag-btn svg{width:14px;height:14px;}
+  .pag-dots{color:var(--text-faint);font-size:12.5px;padding:0 2px;}
   .case-thumb{
     width:34px;height:34px;border-radius:8px;object-fit:cover;flex-shrink:0;
     border:1px solid var(--border);cursor:pointer;
@@ -439,14 +469,44 @@
     color:var(--text-muted);cursor:pointer;transition:.15s;font-family:inherit;white-space:nowrap;
   }
   .segmented button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm);}
-  .period-control{display:flex;align-items:center;gap:10px;flex:1;min-width:220px;}
-  .period-control input[type=range]{flex:1;accent-color:var(--accent);}
-  .period-label{font-size:12px;color:var(--text-muted);white-space:nowrap;font-weight:600;min-width:82px;}
+  .period-control{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .period-label{font-size:12px;color:var(--text-muted);white-space:nowrap;font-weight:600;}
+
+  .field-icon{
+    position:absolute;left:13px;top:50%;transform:translateY(-50%);
+    color:var(--accent-ink);pointer-events:none;display:flex;
+  }
+  .field-icon svg{width:14px;height:14px;}
+
+  .date-field, .select-field{position:relative;display:inline-flex;align-items:center;}
+  .period-date-input, .filter-select{
+    padding:9px 16px 9px 36px;border:1.5px solid var(--border);border-radius:999px;
+    font-size:12.5px;font-family:inherit;background:var(--surface);color:var(--text);font-weight:500;
+    outline:none;transition:border .15s,box-shadow .15s,transform .15s;cursor:pointer;
+    box-shadow:var(--shadow-sm);
+  }
+  .filter-select{
+    padding-right:34px;appearance:none;-webkit-appearance:none;
+    background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%2367707a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>');
+    background-repeat:no-repeat;background-position:right 12px center;background-size:14px;
+  }
+  .period-date-input:hover, .filter-select:hover{border-color:var(--accent);box-shadow:var(--shadow-md);}
+  .period-date-input:focus, .filter-select:focus{
+    border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);
+  }
+  :root[data-theme="dark"] .period-date-input{color-scheme:dark;}
   .period-reset{
     background:none;border:none;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;
     font-family:inherit;padding:4px;white-space:nowrap;
   }
   .period-reset:hover{text-decoration:underline;}
+  .import-status{
+    font-size:12.5px;color:var(--text-muted);margin:-8px 0 16px;min-height:18px;
+    display:none;
+  }
+  .import-status.show{display:block;}
+  .import-status.erro{color:var(--alto);}
+  .import-status.ok{color:var(--baixo);}
 
   /* ---------- LIGHTBOX ---------- */
   .lightbox-overlay{
@@ -486,6 +546,7 @@
   .rank-bar-outer{flex:1;height:10px;background:var(--surface-2);border-radius:6px;overflow:hidden;border:1px solid var(--border);}
   .rank-bar-inner{height:100%;border-radius:6px;}
   .rank-score{width:42px;text-align:right;font-size:12px;font-weight:700;color:var(--text);flex-shrink:0;}
+  .rank-more{margin-top:12px;font-size:11.5px;color:var(--text-faint);text-align:center;}
 
   .trend-badge{
     display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;
@@ -509,6 +570,8 @@
   .metric-row b{font-size:15px;}
   .team-row{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:13px;}
   .team-row .avatar{width:26px;height:26px;font-size:11px;}
+  .team-row a{color:var(--accent-ink);text-decoration:none;font-weight:600;}
+  .team-row a:hover{text-decoration:underline;}
   .tech-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
 
   @media (max-width:860px){ .sobre-grid{grid-template-columns:1fr;} }
@@ -601,6 +664,14 @@
     </div>
   </nav>
 
+  <div class="data-source-banner" id="data-source-banner">
+    <span id="banner-icon"></span>
+    <span>Não foi possível carregar os CSVs em tempo real — exibindo dados de exemplo estáticos.
+    Isso acontece quando o arquivo é aberto direto (<code>file://</code>); abra via um servidor local
+    (ex.: <code>python -m http.server</code> na pasta <code>dashboard/</code>) ou pelo GitHub Pages para
+    ver os dados ao vivo dos CSVs.</span>
+  </div>
+
   <!-- HERO -->
   <section class="hero" id="inicio">
     <div class="hero-inner">
@@ -641,11 +712,19 @@
         <button data-modo="calor-bairro">Calor por bairro</button>
       </div>
       <div class="period-control">
-        <span class="period-label" id="period-label">Todo o período</span>
-        <input type="range" id="period-slider" min="0" max="0" value="0" step="1">
+        <span class="period-label">Até</span>
+        <div class="date-field">
+          <span class="field-icon" id="date-field-icon"></span>
+          <input type="date" id="period-date" class="period-date-input">
+        </div>
         <button class="period-reset" id="period-reset">Redefinir</button>
       </div>
+      <button class="toolbar-btn" id="btn-importar-focos">
+        <span id="import-focos-icon"></span>Importar focos
+      </button>
+      <input type="file" id="input-importar-focos" accept=".csv,image/jpeg,image/png,image/jpg" multiple hidden>
     </div>
+    <p class="import-status" id="import-status"></p>
     <div class="map-card">
       <div id="map"></div>
       <div class="map-title"><b>Santa Rita do Sapucaí</b><span>Atualizado com a base de dados do MVP</span></div>
@@ -666,10 +745,14 @@
         <input type="text" id="f-busca" placeholder="Buscar por rua, ID ou bairro...">
       </div>
       <div class="chip-group" id="f-status"></div>
-      <div class="chip-group" id="f-bairro"></div>
+      <div class="select-field">
+        <span class="field-icon" id="select-field-icon"></span>
+        <select class="filter-select" id="f-bairro"></select>
+      </div>
       <button class="toolbar-btn" id="btn-exportar-csv"><span id="export-csv-icon"></span>Exportar CSV</button>
     </div>
     <div class="cases-list" id="cases-list"></div>
+    <div class="cases-pagination" id="cases-pagination"></div>
   </section>
 
   <!-- SOBRE O PROJETO -->
@@ -777,6 +860,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-delaunay@6/dist/d3-delaunay.min.js"></script>
 <script>
 /* =========================================================
    ÍCONES (SVG inline, estilo outline — sem emojis)
@@ -809,18 +893,36 @@ const ICON_PATHS = {
   "trending-up": '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
   "trending-down": '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
   minus: '<line x1="5" y1="12" x2="19" y2="12"/>',
+  "chevron-left": '<polyline points="15 18 9 12 15 6"/>',
+  "chevron-right": '<polyline points="9 18 15 12 9 6"/>',
+  calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
 };
 function icon(name, size=18, stroke=1.9){
   return `<svg class="ic" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round">${ICON_PATHS[name]||""}</svg>`;
 }
 
 /* =========================================================
-   DADOS (mesma base do MVP — casos_dengue_mvp.csv,
-   focos_detectados_mvp.csv, areas_risco_mvp.csv)
-   Dados simulados para fins de demonstração do projeto FETIN.
+   DADOS — carregados ao vivo de dashboard/casos_dengue_mvp.csv
+   e dashboard/focos_detectados_mvp.csv via fetch(). O script
+   drone/detectar_foco.py grava novos focos diretamente nesse CSV,
+   então recarregar a página mostra as detecções mais recentes.
+
+   Se o fetch falhar (ex.: arquivo aberto direto como file:// —
+   navegadores bloqueiam fetch de arquivos locais por segurança),
+   caímos para os dados de exemplo abaixo e avisamos na tela.
    ========================================================= */
 
-const CASOS = [
+let CASOS = [];
+let FOCOS = [];
+
+const AREA_BAIRRO = {
+  "AR-001": "Centro",
+  "AR-002": "Jardim Santo Antônio",
+  "AR-003": "Jardim das Flores",
+  "AR-004": "Por do Sol",
+};
+
+const DADOS_FALLBACK_CASOS = [
   {id:"CD-001", data:"2026-05-23", bairro:"Centro", endereco:"Rua Cel. José Augusto, próximo ao número 120", lat:-22.253203, lng:-45.705624, status:"confirmado"},
   {id:"CD-002", data:"2026-05-24", bairro:"Centro", endereco:"Rua Cel. José Augusto, próximo ao número 180", lat:-22.254054, lng:-45.704941, status:"confirmado"},
   {id:"CD-003", data:"2026-05-26", bairro:"Centro", endereco:"Praça Cônego Octávio, próximo à praça central", lat:-22.253501, lng:-45.705321, status:"confirmado"},
@@ -838,13 +940,204 @@ const CASOS = [
   {id:"CD-015", data:"2026-06-05", bairro:"Por do Sol", endereco:"Rua Por do Sol, próximo à UBS", lat:-22.259329, lng:-45.711977, status:"suspeito"},
 ];
 
-const FOCOS = [
+const DADOS_FALLBACK_FOCOS = [
   {id:"FD-001", data:"2026-06-03", tipo:"pneu",    lat:-22.251423, lng:-45.706393, confianca:0.95, bairro:"Centro"},
   {id:"FD-002", data:"2026-06-03", tipo:"piscina", lat:-22.252505, lng:-45.706608, confianca:0.91, bairro:"Centro"},
   {id:"FD-003", data:"2026-06-04", tipo:"pneu",    lat:-22.251364, lng:-45.705662, confianca:0.88, bairro:"Centro"},
   {id:"FD-004", data:"2026-06-04", tipo:"pneu",    lat:-22.262898, lng:-45.700844, confianca:0.84, bairro:"Jardim Santo Antônio"},
   {id:"FD-005", data:"2026-06-05", tipo:"piscina", lat:-22.245089, lng:-45.700821, confianca:0.79, bairro:"Jardim das Flores"},
 ];
+
+// Parser CSV mínimo (RFC4180): lida com campos entre aspas contendo vírgulas.
+function parseCSV(texto){
+  const linhas = [];
+  let campo = "", linha = [], entreAspas = false;
+  for(let i = 0; i < texto.length; i++){
+    const c = texto[i], prox = texto[i+1];
+    if(entreAspas){
+      if(c === '"' && prox === '"'){ campo += '"'; i++; }
+      else if(c === '"'){ entreAspas = false; }
+      else { campo += c; }
+    } else if(c === '"'){
+      entreAspas = true;
+    } else if(c === ','){
+      linha.push(campo); campo = "";
+    } else if(c === '\r'){
+      // ignora
+    } else if(c === '\n'){
+      linha.push(campo); linhas.push(linha); linha = []; campo = "";
+    } else {
+      campo += c;
+    }
+  }
+  if(campo.length || linha.length){ linha.push(campo); linhas.push(linha); }
+  if(!linhas.length) return [];
+  const cabecalho = linhas[0].map(h=>h.trim());
+  return linhas.slice(1)
+    .filter(l => l.some(v => v.trim() !== ""))
+    .map(l => {
+      const obj = {};
+      cabecalho.forEach((h,idx)=>{ obj[h] = (l[idx] ?? "").trim(); });
+      return obj;
+    });
+}
+
+async function buscarCSV(caminho){
+  const resp = await fetch(caminho, {cache:"no-store"});
+  if(!resp.ok) throw new Error(`HTTP ${resp.status} ao buscar ${caminho}`);
+  return parseCSV(await resp.text());
+}
+
+/* =========================================================
+   API DE VIGILÂNCIA (api/ deste repositório)
+
+   Substitui os CSV como fonte primária: 2000 casos e 58 bairros no lugar de
+   15 casos e 4 bairros. Os CSV continuam como reserva — se a API não
+   responder, o painel cai neles e depois nos dados estáticos, sem tela de
+   erro. Ver api/docs/api-banco.md.
+
+   Trocar API_BASE por "" desliga a integração e volta tudo ao comportamento
+   anterior: é a forma de reverter sem mexer em mais nada.
+   ========================================================= */
+const API_BASE = "https://projetofetin.eduardo-filhagosa.workers.dev/api";
+
+async function buscarAPI(rota){
+  const resp = await fetch(`${API_BASE}${rota}`, {cache:"no-store"});
+  if(!resp.ok) throw new Error(`HTTP ${resp.status} em ${rota}`);
+  return resp.json();
+}
+
+/* Converte um caso da API para a forma que o painel já usa.
+
+   `endereco` é preenchido com a CÉLULA, não com uma rua. A API não publica
+   endereço: a coordenada que ela devolve é sorteada dentro de uma célula de
+   150 m, não a posição do domicílio. Manter o nome do campo evita mexer nos
+   sete lugares que já o consomem (busca, popup, tooltip, exportação, edição,
+   lista); o que muda é o texto exibido, que passa a dizer a verdade sobre a
+   precisão do dado. */
+function casosDaAPI(dados){
+  return dados.map(c => ({
+    id: c.id,
+    data: c.data_entrada,
+    bairro: c.bairro || "Área não classificada",
+    endereco: c.celula ? `Célula ${c.celula}` : "Localização aproximada",
+    celula: c.celula || null,
+    lat: c.lat_celula,
+    lng: c.lon_celula,
+    // O painel trabalha com dois estados; a API traz a classificação clínica
+    // completa, que é mais rica. Aqui só o suficiente para não quebrar nada —
+    // usar `classificacao` no lugar de `status` é outra mudança.
+    status: c.confirmado ? "confirmado" : "suspeito",
+    classificacao: c.classificacao || null,
+    faixaEtaria: c.faixa_etaria || null,
+    sexo: c.sexo || null,
+  })).filter(c => c.id && Number.isFinite(c.lat) && Number.isFinite(c.lng));
+}
+
+function focosDaAPI(dados){
+  return dados.map(f => ({
+    id: f.deteccao_id,
+    data: f.data_deteccao,
+    // A API usa o vocabulário do contrato de detecção; o painel espera o rótulo
+    // curto que já existe nos CSV.
+    tipo: f.classe === "piscina_sem_tratamento" ? "piscina"
+        : f.classe === "pneus_empilhados" ? "pneu"
+        : f.classe_origem || f.classe,
+    lat: f.lat,
+    lng: f.lon,
+    semGPS: false,
+    confianca: f.confianca,
+    bairro: f.bairro || "Centro",
+    imagemNome: f.origem_imagem || "",
+  })).filter(f => f.id && Number.isFinite(f.lat) && Number.isFinite(f.lng));
+}
+
+function casosDoCSV(linhas){
+  return linhas.map(r => ({
+    id: r.id_caso,
+    data: r.data_notificacao,
+    bairro: r.bairro,
+    endereco: r.endereco_aproximado,
+    lat: parseFloat(r.latitude),
+    lng: parseFloat(r.longitude),
+    status: r.status,
+  })).filter(c => c.id && !Number.isNaN(c.lat) && !Number.isNaN(c.lng));
+}
+
+function focosDoCSV(linhas){
+  return linhas.map(r => {
+    const bairro = AREA_BAIRRO[r.id_area] || "Centro";
+    let lat = parseFloat(r.latitude), lng = parseFloat(r.longitude);
+    const semGPS = !lat || !lng || Number.isNaN(lat) || Number.isNaN(lng);
+    if(semGPS){
+      const centro = CENTRO_MAPA[bairro] || CENTRO_MAPA["Centro"];
+      lat = centro[0] + (Math.random()-0.5)*0.0018;
+      lng = centro[1] + (Math.random()-0.5)*0.0026;
+    }
+    return {
+      id: r.id_foco,
+      data: r.data_detectado,
+      tipo: r.tipo_foco,
+      lat, lng, semGPS,
+      confianca: parseFloat(r.confianca_ia),
+      bairro,
+      imagemNome: r.origem_imagem || "",
+    };
+  }).filter(f => f.id);
+}
+
+/* Fonte dos dados, em três degraus: API → CSV → estáticos.
+
+   Os três existem porque cada um falha por um motivo diferente. A API cai se
+   o Worker estiver fora ou a rede da feira não cooperar; os CSV caem se o
+   painel for aberto com duplo clique (o `file://` bloqueia fetch); os
+   estáticos são o piso que nunca falha.
+
+   Cada degrau avisa no console qual usou. Descobrir isso no meio de uma
+   demonstração, sem pista nenhuma, é o que se quer evitar. */
+let FONTE_DOS_DADOS = "estáticos";
+
+async function carregarDados(){
+  if(API_BASE){
+    try{
+      const [casos, focos] = await Promise.all([
+        buscarAPI("/casos?limite=5000"),
+        buscarAPI("/deteccoes"),
+      ]);
+      CASOS = casosDaAPI(casos.dados);
+      FOCOS = focosDaAPI(focos.dados);
+      if(!CASOS.length) throw new Error("API respondeu sem casos");
+      FONTE_DOS_DADOS = "API";
+      console.info(`Dados da API: ${CASOS.length} casos, ${FOCOS.length} focos, `
+        + `${new Set(CASOS.map(c=>c.bairro)).size} bairros.`);
+      return;
+    } catch(e){
+      console.warn("API indisponível, tentando os CSV:", e);
+    }
+  }
+
+  try{
+    const [casosCSV, focosCSV] = await Promise.all([
+      buscarCSV("casos_dengue_mvp.csv"),
+      buscarCSV("focos_detectados_mvp.csv"),
+    ]);
+    CASOS = casosDoCSV(casosCSV);
+    FOCOS = focosDoCSV(focosCSV);
+    if(!CASOS.length || !FOCOS.length) throw new Error("CSV vazio ou em formato inesperado");
+    FONTE_DOS_DADOS = "CSV";
+  } catch(e){
+    console.warn("Não foi possível carregar os CSVs ao vivo, usando dados de exemplo:", e);
+    CASOS = DADOS_FALLBACK_CASOS.slice();
+    FOCOS = DADOS_FALLBACK_FOCOS.slice();
+    FONTE_DOS_DADOS = "estáticos";
+    mostrarAvisoFallback();
+  }
+}
+
+function mostrarAvisoFallback(){
+  const banner = document.getElementById("data-source-banner");
+  if(banner) banner.classList.add("show");
+}
 
 // Contorno real de cada bairro, traçado a partir da malha de ruas do OpenStreetMap
 // (consulta Overpass API + envoltória côncava sobre os pontos das vias em cada área).
@@ -876,6 +1169,90 @@ const CENTRO_MAPA = {
 
 const RISK_HEX = {alto:"#e5484d", medio:"#e8a23d", baixo:"#12b76a"};
 
+/* =========================================================
+   CONTORNOS DE BAIRRO GERADOS A PARTIR DOS DADOS
+   Centro, Jardim Santo Antônio, Jardim das Flores e Por do Sol já têm
+   contorno real, traçado nas ruas (ver BAIRRO_POLIGONOS acima). Com a
+   API de vigilância entram dezenas de bairros a mais, sem contorno
+   oficial nenhum disponível — só o centróide dos casos de cada um.
+
+   Para esses, geramos um território a partir da própria distribuição
+   espacial dos casos: um diagrama de Voronoi usando o centróide de
+   cada bairro como "semente", recortado na área da cidade. Isso reparte
+   o mapa inteiro em células vizinhas e sem sobreposição — o formato
+   mais parecido com bairros reais que dá para tirar só de pontos.
+   Bairro com poucos casos (hull degenerado ou sem lib disponível) cai
+   num quadrado simples ao redor do centróide.
+   ========================================================= */
+function raioGlowParaPoligono(coords){
+  const lats = coords.map(c=>c[0]), lngs = coords.map(c=>c[1]);
+  const diagonalGraus = Math.max(Math.max(...lats)-Math.min(...lats), Math.max(...lngs)-Math.min(...lngs));
+  const metros = diagonalGraus * 111000 * 0.4;
+  return Math.min(320, Math.max(70, metros));
+}
+
+function quadradoAoRedor(centro, ladoGraus=0.0035){
+  const [lat,lng] = centro;
+  const d = ladoGraus/2;
+  return [[lat-d,lng-d],[lat-d,lng+d],[lat+d,lng+d],[lat+d,lng-d],[lat-d,lng-d]];
+}
+
+function completarPoligonosComDados(){
+  const curados = new Set(Object.keys(BAIRRO_POLIGONOS));
+
+  const pontosPorBairro = {};
+  [...CASOS, ...FOCOS].forEach(item=>{
+    const nome = item.bairro;
+    if(!nome || !Number.isFinite(item.lat) || !Number.isFinite(item.lng)) return;
+    (pontosPorBairro[nome] ||= []).push([item.lat, item.lng]);
+  });
+
+  const centroides = {};
+  Object.entries(pontosPorBairro).forEach(([nome, pts])=>{
+    const lat = pts.reduce((s,p)=>s+p[0],0) / pts.length;
+    const lng = pts.reduce((s,p)=>s+p[1],0) / pts.length;
+    centroides[nome] = [lat,lng];
+    if(!CENTRO_MAPA[nome]) CENTRO_MAPA[nome] = [lat,lng];
+  });
+  // Bairros já curados entram como sítio também, com o próprio centro
+  // conhecido, só para o Voronoi "respeitar" o espaço deles — o contorno
+  // real desses não é substituído.
+  curados.forEach(nome=>{ if(!centroides[nome] && CENTRO_MAPA[nome]) centroides[nome] = CENTRO_MAPA[nome]; });
+
+  const nomesSitios = Object.keys(centroides);
+  const semContorno = nomesSitios.filter(n => !curados.has(n));
+  if(!semContorno.length) return;
+
+  const temVoronoi = typeof d3 !== "undefined" && d3.Delaunay && nomesSitios.length >= 4;
+  if(!temVoronoi){
+    semContorno.forEach(nome => { BAIRRO_POLIGONOS[nome] = quadradoAoRedor(centroides[nome]); });
+    return;
+  }
+
+  const sitiosXY = nomesSitios.map(nome => [centroides[nome][1], centroides[nome][0]]); // [lng,lat]
+  const lngs = sitiosXY.map(p=>p[0]), lats = sitiosXY.map(p=>p[1]);
+  const pad = 0.015;
+  const limites = [Math.min(...lngs)-pad, Math.min(...lats)-pad, Math.max(...lngs)+pad, Math.max(...lats)+pad];
+
+  let voronoi;
+  try{
+    voronoi = d3.Delaunay.from(sitiosXY).voronoi(limites);
+  } catch(e){
+    console.warn("Voronoi falhou, usando quadrados:", e);
+    semContorno.forEach(nome => { BAIRRO_POLIGONOS[nome] = quadradoAoRedor(centroides[nome]); });
+    return;
+  }
+
+  nomesSitios.forEach((nome, i)=>{
+    if(curados.has(nome)) return;
+    let celula = null;
+    try{ celula = voronoi.cellPolygon(i); } catch(e){ /* segue pro fallback */ }
+    BAIRRO_POLIGONOS[nome] = celula && celula.length >= 3
+      ? celula.map(([lng,lat]) => [lat,lng])
+      : quadradoAoRedor(centroides[nome]);
+  });
+}
+
 // Modelo de status dos casos: além de confirmado/suspeito, permite acompanhar
 // casos em apuração ou que não se confirmaram como dengue.
 const STATUS_META = {
@@ -903,7 +1280,26 @@ const FOCO_IMG = {piscina:"../demo_result.jpg", pneu:"../demo_result_tire.jpg"};
 const BONUS_PROXIMIDADE = { "Centro":4, "Jardim Santo Antônio":2, "Jardim das Flores":0, "Por do Sol":0 };
 
 function calcularBairros(){
-  const nomes = Object.keys(BAIRRO_POLIGONOS);
+  /* Antes: `Object.keys(BAIRRO_POLIGONOS)` — os 4 bairros com contorno
+     traçado. Com os CSV isso bastava, porque os CSV só tinham esses 4.
+
+     Com a API são 58 bairros, e apenas 152 dos 2000 casos (8%) caem nos 4 com
+     polígono. Manter a lista fixa deixaria o mapa com 2000 marcadores e o
+     ranking dizendo respeito a 8% deles — sem nada na tela indicando isso.
+
+     Agora a lista sai do DADO, unida aos 4 conhecidos para que eles apareçam
+     mesmo sem casos no recorte. Bairro sem polígono simplesmente não recebe o
+     contorno no mapa; os marcadores e o ranking funcionam igual.
+
+     A FÓRMULA DO SCORE NÃO MUDOU. Continua `casos*2 + focos*3 + bônus`,
+     normalizada de 1 a 10. Trocar por incidência por habitante é a mudança
+     que de fato importa — e é decisão de design de quem mantém este painel,
+     não algo para entrar de carona numa troca de fonte de dados. */
+  const nomes = [...new Set([
+    ...Object.keys(BAIRRO_POLIGONOS),
+    ...CASOS.map(c => c.bairro),
+    ...FOCOS.map(f => f.bairro),
+  ])].filter(Boolean);
   const raw = {};
   nomes.forEach(nome=>{
     const casosBairro = CASOS.filter(c=>c.bairro===nome);
@@ -936,7 +1332,7 @@ function calcularBairros(){
   });
   return raw;
 }
-let BAIRROS = calcularBairros();
+let BAIRROS = {};
 
 /* =========================================================
    ESTATÍSTICAS AGREGADAS (para a seção "Visão geral")
@@ -1012,6 +1408,10 @@ document.getElementById("nav-toggle").innerHTML = icon("menu", 18, 2);
 document.getElementById("novo-caso-icon").innerHTML = icon("plus", 15, 2.3);
 document.getElementById("modal-close").innerHTML = icon("close", 14, 2.2);
 document.getElementById("lightbox-close").innerHTML = icon("close", 16, 2.2);
+document.getElementById("banner-icon").innerHTML = icon("alert", 16, 2);
+document.getElementById("import-focos-icon").innerHTML = icon("download", 14, 2);
+document.getElementById("date-field-icon").innerHTML = icon("calendar", 14, 2);
+document.getElementById("select-field-icon").innerHTML = icon("pin", 14, 2);
 document.getElementById("export-report-icon").innerHTML = icon("download", 14, 2);
 document.getElementById("export-csv-icon").innerHTML = icon("download", 14, 2);
 
@@ -1032,7 +1432,12 @@ function abrirLightboxCaso(id){
 }
 function abrirLightboxFoco(id){
   const f = FOCOS.find(x=>x.id===id);
-  if(f) abrirLightbox(FOCO_IMG[f.tipo], `${f.id} — exemplo de detecção de ${f.tipo} pelo modelo YOLOv8 (imagem do dataset de treino)`);
+  if(!f) return;
+  if(f.foto){
+    abrirLightbox(f.foto, `${f.id} — foto real capturada na detecção (${f.tipo})`);
+  } else {
+    abrirLightbox(FOCO_IMG[f.tipo], `${f.id} — exemplo de detecção de ${f.tipo} pelo modelo YOLOv8 (imagem do dataset de treino)`);
+  }
 }
 function initLightbox(){
   document.getElementById("lightbox-close").addEventListener("click", fecharLightbox);
@@ -1136,9 +1541,14 @@ function initNavSpy(){
    INICIALIZAÇÃO DO APP
    ========================================================= */
 let _initialized = false;
-function initApp(){
+async function initApp(){
   if(_initialized) return;
   _initialized = true;
+  document.getElementById("stats-grid").innerHTML = `<div class="empty-state">Carregando dados...</div>`;
+  document.getElementById("cases-list").innerHTML = `<div class="empty-state">Carregando dados...</div>`;
+  await carregarDados();
+  completarPoligonosComDados();
+  BAIRROS = calcularBairros();
   montarHeroMeta();
   montarStats();
   montarMapa();
@@ -1150,16 +1560,27 @@ function initApp(){
   initModalNovoCaso();
   initLightbox();
   initExportButtons();
+  initImportarFocos();
   window.addEventListener("load", ()=>{ if(window._map) window._map.invalidateSize(); });
 }
 
 function montarSobre(){
   document.getElementById("tech-tags").innerHTML = ["YOLOv8","OpenCV","Roboflow","Folium / Leaflet","Python"]
     .map(t=>`<span class="tag">${t}</span>`).join("");
-  document.getElementById("team-list").innerHTML = `
-    <div class="team-row"><div class="avatar">R</div><span>Rander D. Lemos — github.com/RanderDLemos</span></div>
-    <div class="team-row"><div class="avatar">?</div><span style="color:var(--text-faint)">Demais integrantes da Equipe 49 a definir</span></div>
-  `;
+  const equipe = [
+    {nome:"Rander D. Lemos",         github:"RanderDLemos"},
+    {nome:"Eduardo F. Guimarães",    github:"EduardoFGuimaraes"},
+    {nome:"Matheus Borges Mariano",  github:"1matheeus"},
+    {nome:"Matheus Reis",            github:null},
+  ];
+  document.getElementById("team-list").innerHTML = equipe.map(p=>`
+    <div class="team-row">
+      <div class="avatar">${p.nome[0]}</div>
+      <span>${p.nome}${p.github
+        ? ` — <a href="https://github.com/${p.github}" target="_blank" rel="noopener">@${p.github}</a>`
+        : ` <span style="color:var(--text-faint)">— GitHub a confirmar</span>`}</span>
+    </div>
+  `).join("");
 }
 
 function initExportButtons(){
@@ -1217,13 +1638,16 @@ function montarStats(){
   const trendTxt = (comp.delta > 0 ? "+" : "") + comp.pct + "%";
 
   const ranking = Object.values(BAIRROS).sort((a,b)=>b.score-a.score);
-  const rankingRows = ranking.map(b=>`
+  const TOP_RANKING = 10;
+  const rankingRows = ranking.slice(0, TOP_RANKING).map(b=>`
     <div class="rank-row">
       <span class="rank-name">${b.nome}</span>
       <div class="rank-bar-outer"><div class="rank-bar-inner" style="width:${b.score*10}%;background:${b.cor}"></div></div>
       <span class="rank-score">${b.score}/10</span>
     </div>
-  `).join("");
+  `).join("") + (ranking.length > TOP_RANKING
+    ? `<div class="rank-more">+ ${ranking.length - TOP_RANKING} outros bairros monitorados</div>`
+    : "");
 
   document.getElementById("stats-grid").innerHTML = `
     <div class="stat-card">
@@ -1378,6 +1802,7 @@ let poligonoLayers = {};
 let glowLayers = {};
 let casoClusterGroup;
 let casoMarkers = {};
+let focoMarkers = {};
 let heatLayerAtivo = null;
 let heatLayersBairroAtivos = [];
 let modoVisualizacao = "pins";
@@ -1401,9 +1826,19 @@ function montarMapa(){
     const coords = BAIRRO_POLIGONOS[b.nome];
     const centro = CENTRO_MAPA[b.nome];
 
-    // glow (efeito de calor, desfocado)
+    // Com a API o ranking passou a cobrir os 58 bairros do dado, e só 4 têm
+    // contorno traçado. Sem esta guarda, `L.circle(undefined)` estoura no
+    // primeiro bairro sem polígono e o mapa inteiro não monta — falha total
+    // por causa de uma camada decorativa.
+    //
+    // Bairro sem contorno continua no ranking e continua com seus marcadores
+    // no mapa; o que falta é só o polígono colorido por cima.
+    if(!coords || !centro) return;
+
+    // glow (efeito de calor, desfocado) — raio proporcional ao tamanho do polígono,
+    // já que agora os bairros vão de quarteirões pequenos a zonas Voronoi grandes
     const glow = L.circle(centro, {
-      radius: 230,
+      radius: raioGlowParaPoligono(coords),
       color: "transparent",
       fillColor: b.cor,
       fillOpacity: 0.30,
@@ -1439,33 +1874,7 @@ function montarMapa(){
   CASOS.forEach(criarMarcadorCaso);
 
   // --- Pins de focos detectados pelo drone ---
-  FOCOS.forEach(f=>{
-    const iconSvg = f.tipo === "pneu" ? icon("disc",15,2) : icon("droplet",15,2);
-    const divIcon = L.divIcon({
-      html: `<div style="background:var(--ink,#14181c);color:#fff;border-radius:9px;padding:6px;display:flex;border:2px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.3)">${iconSvg}</div>`,
-      iconSize:[30,30], iconAnchor:[15,15], className:""
-    });
-    const marker = L.marker([f.lat,f.lng], {icon:divIcon}).addTo(grupoFocos);
-    const confPct = Math.round(f.confianca*100);
-    const nivelConf = f.confianca>=0.8 ? "Alta" : (f.confianca>=0.7 ? "Média" : "Baixa");
-    const corConf = f.confianca>=0.8 ? RISK_HEX.baixo : (f.confianca>=0.7 ? RISK_HEX.medio : RISK_HEX.alto);
-    marker.bindPopup(`
-      <div class="popup-card">
-        <div class="popup-head">${icon("drone",15)}<h4>Foco detectado por drone</h4></div>
-        <table>
-          <tr><td>ID</td><td><b>${f.id}</b></td></tr>
-          <tr><td>Tipo</td><td>${f.tipo[0].toUpperCase()+f.tipo.slice(1)}</td></tr>
-          <tr><td>Confiança IA</td><td><b style="color:${corConf}">${confPct}% (${nivelConf})</b></td></tr>
-          <tr><td>Data</td><td>${formatarData(f.data)}</td></tr>
-          <tr><td>Bairro</td><td>${f.bairro}</td></tr>
-        </table>
-        <div class="popup-image-link" onclick="abrirLightboxFoco('${f.id}')">
-          <img src="${FOCO_IMG[f.tipo]}" alt="">
-          Ver imagem de exemplo da detecção
-        </div>
-      </div>
-    `);
-  });
+  FOCOS.forEach(criarMarcadorFoco);
 
   L.control.layers(null, {
     [`<span class="swatch" style="background:${RISK_HEX.medio}"></span> Zonas de calor`]: grupoBairros,
@@ -1529,6 +1938,40 @@ function criarMarcadorCaso(c){
   return marker;
 }
 
+function criarMarcadorFoco(f){
+  const iconSvg = f.tipo === "pneu" ? icon("disc",15,2) : icon("droplet",15,2);
+  const divIcon = L.divIcon({
+    html: `<div style="background:var(--ink,#14181c);color:#fff;border-radius:9px;padding:6px;display:flex;border:2px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.3)">${iconSvg}</div>`,
+    iconSize:[30,30], iconAnchor:[15,15], className:""
+  });
+  const marker = L.marker([f.lat,f.lng], {icon:divIcon}).addTo(grupoFocos);
+  const confPct = Math.round(f.confianca*100);
+  const nivelConf = f.confianca>=0.8 ? "Alta" : (f.confianca>=0.7 ? "Média" : "Baixa");
+  const corConf = f.confianca>=0.8 ? RISK_HEX.baixo : (f.confianca>=0.7 ? RISK_HEX.medio : RISK_HEX.alto);
+  const temFotoReal = !!f.foto;
+  const srcImagem = temFotoReal ? f.foto : FOCO_IMG[f.tipo];
+  const textoImagem = temFotoReal ? "Ver foto do foco" : "Ver imagem de exemplo da detecção";
+  marker.bindPopup(`
+    <div class="popup-card">
+      <div class="popup-head">${icon("drone",15)}<h4>Foco detectado por drone</h4></div>
+      <table>
+        <tr><td>ID</td><td><b>${f.id}</b></td></tr>
+        <tr><td>Tipo</td><td>${f.tipo[0].toUpperCase()+f.tipo.slice(1)}</td></tr>
+        <tr><td>Confiança IA</td><td><b style="color:${corConf}">${confPct}% (${nivelConf})</b></td></tr>
+        <tr><td>Data</td><td>${formatarData(f.data)}</td></tr>
+        <tr><td>Bairro</td><td>${f.bairro}</td></tr>
+        ${f.semGPS ? `<tr><td>Localização</td><td style="color:var(--text-faint)">Aproximada (sem fix de GPS)</td></tr>` : ""}
+      </table>
+      <div class="popup-image-link" onclick="abrirLightboxFoco('${f.id}')">
+        <img src="${srcImagem}" alt="">
+        ${textoImagem}
+      </div>
+    </div>
+  `);
+  focoMarkers[f.id] = marker;
+  return marker;
+}
+
 /* =========================================================
    MODOS DE VISUALIZAÇÃO DO MAPA (pins / calor todos / calor por bairro)
    + FILTRO DE PERÍODO
@@ -1575,27 +2018,21 @@ function aplicarModoVisualizacao(){
 
 function atualizarPeriodoSlider(){
   const datas = datasOrdenadas();
-  const slider = document.getElementById("period-slider");
-  slider.max = Math.max(0, datas.length - 1);
-  slider.value = slider.max;
+  const input = document.getElementById("period-date");
+  if(datas.length){
+    input.min = datas[0];
+    input.max = datas[datas.length - 1];
+  }
+  input.value = "";
   dataMaxSelecionada = null;
-  document.getElementById("period-label").textContent = "Todo o período";
 }
 
 function initMapaControles(){
   atualizarPeriodoSlider();
   aplicarModoVisualizacao();
 
-  document.getElementById("period-slider").addEventListener("input", e=>{
-    const datas = datasOrdenadas();
-    const idx = parseInt(e.target.value, 10);
-    if(idx >= datas.length - 1){
-      dataMaxSelecionada = null;
-      document.getElementById("period-label").textContent = "Todo o período";
-    } else {
-      dataMaxSelecionada = datas[idx];
-      document.getElementById("period-label").textContent = "Até " + formatarData(dataMaxSelecionada);
-    }
+  document.getElementById("period-date").addEventListener("change", e=>{
+    dataMaxSelecionada = e.target.value || null;
     aplicarModoVisualizacao();
   });
 
@@ -1681,6 +2118,104 @@ function atualizarTudoAposMudancaDeCasos(){
   renderCasos();
   atualizarPeriodoSlider();
   aplicarModoVisualizacao();
+}
+
+/* =========================================================
+   IMPORTAR FOCOS — o script drone/detectar_foco.py salva o CSV
+   (sempre o mesmo arquivo, uma linha por foco) e as fotos na
+   Área de Trabalho. Aqui o usuário seleciona esse CSV junto com
+   as fotos e o dashboard casa cada foco com sua foto pelo nome
+   do arquivo (coluna origem_imagem) e adiciona/atualiza no mapa.
+   Isso só muda os dados desta sessão do navegador — não grava
+   nada de volta no repositório.
+   ========================================================= */
+function lerArquivoComoTexto(file){
+  return new Promise((resolve, reject)=>{
+    const r = new FileReader();
+    r.onload = ()=>resolve(r.result);
+    r.onerror = ()=>reject(r.error);
+    r.readAsText(file, "utf-8");
+  });
+}
+function lerArquivoComoDataURL(file){
+  return new Promise((resolve, reject)=>{
+    const r = new FileReader();
+    r.onload = ()=>resolve(r.result);
+    r.onerror = ()=>reject(r.error);
+    r.readAsDataURL(file);
+  });
+}
+
+function mostrarStatusImportacao(msg, tipo){
+  const el = document.getElementById("import-status");
+  el.textContent = msg;
+  el.className = "import-status show" + (tipo ? " " + tipo : "");
+  clearTimeout(mostrarStatusImportacao._t);
+  mostrarStatusImportacao._t = setTimeout(()=>{ el.classList.remove("show"); }, 8000);
+}
+
+async function importarFocosArquivos(files){
+  const arquivos = Array.from(files);
+  const arquivoCSV = arquivos.find(f => f.name.toLowerCase().endsWith(".csv"));
+  if(!arquivoCSV){
+    mostrarStatusImportacao("Selecione também o arquivo .csv salvo pelo detectar_foco.py.", "erro");
+    return;
+  }
+  const imagensPorNome = {};
+  arquivos.filter(f => f !== arquivoCSV).forEach(f => { imagensPorNome[f.name] = f; });
+
+  let novosFocos;
+  try{
+    const texto = await lerArquivoComoTexto(arquivoCSV);
+    novosFocos = focosDoCSV(parseCSV(texto));
+  } catch(e){
+    mostrarStatusImportacao("Não foi possível ler esse CSV. Confira se é o arquivo certo.", "erro");
+    return;
+  }
+  if(!novosFocos.length){
+    mostrarStatusImportacao("O CSV não tem nenhum foco válido.", "erro");
+    return;
+  }
+
+  let adicionados = 0, atualizados = 0, comFoto = 0;
+  for(const f of novosFocos){
+    const arquivoImg = imagensPorNome[f.imagemNome];
+    if(arquivoImg){
+      try{ f.foto = await lerArquivoComoDataURL(arquivoImg); comFoto++; } catch(e){ /* segue sem foto */ }
+    }
+    const existente = FOCOS.find(x => x.id === f.id);
+    if(existente){
+      Object.assign(existente, f);
+      if(focoMarkers[f.id]){ grupoFocos.removeLayer(focoMarkers[f.id]); }
+      criarMarcadorFoco(existente);
+      atualizados++;
+    } else {
+      FOCOS.push(f);
+      criarMarcadorFoco(f);
+      adicionados++;
+    }
+  }
+
+  atualizarPoligonosBairros();
+  montarHeroMeta();
+  montarStats();
+
+  const partes = [];
+  if(adicionados) partes.push(`${adicionados} novo(s)`);
+  if(atualizados) partes.push(`${atualizados} atualizado(s)`);
+  mostrarStatusImportacao(
+    `Importação concluída: ${partes.join(", ") || "nenhuma mudança"} — ${comFoto} com foto anexada.`,
+    "ok"
+  );
+}
+
+function initImportarFocos(){
+  const input = document.getElementById("input-importar-focos");
+  document.getElementById("btn-importar-focos").addEventListener("click", ()=> input.click());
+  input.addEventListener("change", ()=>{
+    if(input.files.length) importarFocosArquivos(input.files);
+    input.value = "";
+  });
 }
 
 function initModalNovoCaso(){
@@ -1801,6 +2336,8 @@ function initModalNovoCaso(){
    ========================================================= */
 let filtroStatus = "";
 let filtroBairro = "";
+let paginaAtual = 1;
+const CASOS_POR_PAGINA = 20;
 
 function montarCasos(){
   const bairrosUnicos = [...new Set(CASOS.map(c=>c.bairro))];
@@ -1812,26 +2349,65 @@ function montarCasos(){
     <button class="chip" data-status="investigacao">Em investigação</button>
     <button class="chip" data-status="descartado">Descartados</button>
   `;
+  const bairrosOrdenados = bairrosUnicos.sort((a,b)=>a.localeCompare(b, "pt-BR"));
   document.getElementById("f-bairro").innerHTML = `
-    <button class="chip active" data-bairro="">Todos os bairros</button>
-    ${bairrosUnicos.map(b=>`<button class="chip" data-bairro="${b}">${b}</button>`).join("")}
+    <option value="">Todos os bairros (${bairrosOrdenados.length})</option>
+    ${bairrosOrdenados.map(b=>`<option value="${b}">${b}</option>`).join("")}
   `;
 
   document.getElementById("f-status").addEventListener("click", e=>{
     const btn = e.target.closest(".chip"); if(!btn) return;
     filtroStatus = btn.dataset.status;
     document.querySelectorAll("#f-status .chip").forEach(c=>c.classList.toggle("active", c===btn));
+    paginaAtual = 1;
     renderCasos();
   });
-  document.getElementById("f-bairro").addEventListener("click", e=>{
-    const btn = e.target.closest(".chip"); if(!btn) return;
-    filtroBairro = btn.dataset.bairro;
-    document.querySelectorAll("#f-bairro .chip").forEach(c=>c.classList.toggle("active", c===btn));
+  document.getElementById("f-bairro").addEventListener("change", e=>{
+    filtroBairro = e.target.value;
+    paginaAtual = 1;
     renderCasos();
   });
-  document.getElementById("f-busca").addEventListener("input", renderCasos);
+  document.getElementById("f-busca").addEventListener("input", ()=>{
+    paginaAtual = 1;
+    renderCasos();
+  });
+  document.getElementById("cases-pagination").addEventListener("click", e=>{
+    const btn = e.target.closest("[data-pagina]"); if(!btn || btn.disabled) return;
+    paginaAtual = parseInt(btn.dataset.pagina, 10);
+    renderCasos();
+    document.getElementById("casos").scrollIntoView({behavior:"smooth", block:"start"});
+  });
 
   renderCasos();
+}
+
+function renderPaginacao(totalItens, totalPaginas){
+  const el = document.getElementById("cases-pagination");
+  if(totalPaginas <= 1){ el.innerHTML = ""; return; }
+
+  const inicio = (paginaAtual-1)*CASOS_POR_PAGINA + 1;
+  const fim = Math.min(paginaAtual*CASOS_POR_PAGINA, totalItens);
+
+  // páginas mostradas: sempre 1 e a última, + uma janela ao redor da atual
+  const paginas = new Set([1, totalPaginas, paginaAtual, paginaAtual-1, paginaAtual+1]);
+  const validas = [...paginas].filter(p => p>=1 && p<=totalPaginas).sort((a,b)=>a-b);
+
+  let botoes = "";
+  let anterior = 0;
+  validas.forEach(p=>{
+    if(p - anterior > 1) botoes += `<span class="pag-dots">…</span>`;
+    botoes += `<button class="pag-btn ${p===paginaAtual?"active":""}" data-pagina="${p}">${p}</button>`;
+    anterior = p;
+  });
+
+  el.innerHTML = `
+    <span class="pag-info">${inicio}–${fim} de ${totalItens} casos</span>
+    <div class="pag-buttons">
+      <button class="pag-btn" data-pagina="${paginaAtual-1}" ${paginaAtual<=1?"disabled":""} aria-label="Página anterior">${icon("chevron-left",14,2.2)}</button>
+      ${botoes}
+      <button class="pag-btn" data-pagina="${paginaAtual+1}" ${paginaAtual>=totalPaginas?"disabled":""} aria-label="Próxima página">${icon("chevron-right",14,2.2)}</button>
+    </div>
+  `;
 }
 
 function renderCasos(){
@@ -1848,10 +2424,18 @@ function renderCasos(){
   const list = document.getElementById("cases-list");
   if(filtrados.length === 0){
     list.innerHTML = `<div class="empty-state">Nenhum caso encontrado para este filtro.</div>`;
+    document.getElementById("cases-pagination").innerHTML = "";
     return;
   }
 
-  list.innerHTML = filtrados.map(c=>{
+  const totalPaginas = Math.max(1, Math.ceil(filtrados.length / CASOS_POR_PAGINA));
+  if(paginaAtual > totalPaginas) paginaAtual = totalPaginas;
+  if(paginaAtual < 1) paginaAtual = 1;
+
+  const inicio = (paginaAtual-1) * CASOS_POR_PAGINA;
+  const pagina = filtrados.slice(inicio, inicio + CASOS_POR_PAGINA);
+
+  list.innerHTML = pagina.map(c=>{
     const meta = STATUS_META[c.status] || STATUS_META.suspeito;
     const thumb = c.foto ? `<img class="case-thumb" src="${c.foto}" data-lightbox-caso="${c.id}" alt="Foto do local" title="Ver foto">` : "";
     return `
@@ -1872,6 +2456,8 @@ function renderCasos(){
       </div>
     </div>
   `;}).join("");
+
+  renderPaginacao(filtrados.length, totalPaginas);
 }
 </script>
 </body>
