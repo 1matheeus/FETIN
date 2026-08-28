@@ -113,12 +113,50 @@ python drone/detectar_foco.py --porta /dev/ttyUSB0
 ```
 | Flag | Descrição | Padrão |
 |------|-----------|--------|
-| `--porta` | Porta serial do GPS (Linux/Mac: `/dev/ttyUSB0`, Windows: `COM3`) | auto |
+| `--gps-rede` | `IP:porta` do celular transmitindo GPS real pela rede (ex.: `192.168.0.42:11123`) | — |
+| `--porta` | Porta serial do GPS de módulo externo (Linux/Mac: `/dev/ttyUSB0`, Windows: `COM3`) | auto |
 | `--conf` | Confiança mínima para considerar detecção | `0.60` |
 | `--tempo` | Segundos mantendo o threshold para confirmar foco | `3` |
 | `--camera` | Índice da câmera | `0` |
 | `--sem-gps` | Modo sem GPS para testes em bancada | — |
+| `--sem-rede` | Não tenta localização por rede (Wi-Fi do SO / IP) | — |
 | `--saida` | Pasta onde salvar o CSV e as fotos | Área de Trabalho |
+
+Sem um módulo GPS físico conectado, cada foco ainda pode ganhar uma localização real. O script tenta,
+em ordem:
+
+1. **GPS real do celular via rede** (`--gps-rede`, recomendado) — o celular roda um app que
+   transmite as sentenças NMEA do GPS dele (o chip de satélite de verdade) por TCP na rede local; o
+   script lê essa transmissão como se fosse um GPS serial. Precisão de ~5-20 m, a mesma de qualquer
+   app de mapa no celular.
+   - **iPhone:** app "GPS2IP" (ou similar) — ele mostra o IP e a porta na tela para você digitar em
+     `--gps-rede`.
+   - **Android:** um app de "NMEA sobre TCP/rede" (ex.: "Share GPS", ou "BlueNMEA" no modo rede em
+     vez de Bluetooth) — a porta varia por app, veja nas configurações dele.
+   - Celular e computador precisam estar na **mesma rede Wi-Fi**.
+2. **GPS serial de verdade** (`--porta`), se um módulo GPS físico estiver conectado.
+3. **Localização por rede via Wi-Fi do sistema operacional** (o mesmo serviço que o Mapas e o Clima
+   do SO usam) — fallback automático se nenhuma das opções acima estiver disponível. **Atenção:** em
+   cidades pequenas como Santa Rita do Sapucaí, esse serviço costuma ter pouca cobertura de Wi-Fi
+   mapeada e na prática devolve sempre uma estimativa fixa "de cidade" (erro de ~1-2 km — o suficiente
+   para cair no bairro vizinho errado). Não é uma limitação do código, é do banco de dados de
+   localização do sistema operacional nessa região — por isso o GPS do celular (opção 1) é a
+   alternativa recomendada quando não há módulo GPS físico.
+4. **Geolocalização por IP público** como último recurso, ainda menos precisa que a opção acima.
+5. `0.0, 0.0` se nenhuma fonte for confiável (mais de 60 km de Santa Rita do Sapucaí) ou disponível.
+
+A localização por Wi-Fi do sistema operacional (opção 3) funciona tanto no **Windows** quanto no
+**macOS** (útil para apresentar em um MacBook, por exemplo):
+
+| Sistema | Dependência | Ativar localização |
+|---------|-------------|---------------------|
+| Windows | `pip install winsdk` | Configurações > Privacidade e segurança > Localização: ligar "Serviços de localização" e permitir para apps de área de trabalho |
+| macOS | `pip install pyobjc-framework-CoreLocation` | Ajustes do Sistema > Privacidade e Segurança > Localização: ligar, e autorizar o Terminal quando o sistema pedir na primeira execução (ou adicionar manualmente, se o pedido não aparecer) |
+
+> A parte de macOS foi implementada e documentada, mas não pôde ser testada em uma máquina macOS real
+> durante o desenvolvimento (feito em Windows) — teste com antecedência antes da apresentação. Se
+> falhar por qualquer motivo, o script cai automaticamente para geolocalização por IP e depois para
+> `0.0, 0.0`, sem travar a detecção.
 
 O CSV (`focos_detectados_mvp.csv`) e as fotos (`foco_<tipo>_<data>.jpg`) ficam sempre na Área de
 Trabalho — cada nova detecção só adiciona uma linha ao mesmo arquivo. Para levar isso para o
