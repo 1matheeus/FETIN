@@ -615,6 +615,29 @@
     .btn-primary-nav .btn-primary-label{display:none;}
     .btn-primary-nav{padding:9px;}
   }
+
+  /* Abaixo de ~480px o grupo de ações do header (novo caso/menu/avatar/nome/
+     tema/sair) não cabe mais numa linha só mesmo com o "Novo caso" já
+     reduzido a ícone (regra acima) — aperta espaçamento e esconde texto
+     que não é essencial pra reconhecer a ação (nome do usuário, subtítulo
+     da marca), sem remover nenhum botão. */
+  @media (max-width:480px){
+    .topnav{padding:0 14px;}
+    .topnav .brand{gap:8px;}
+    .topnav .brand-text span{display:none;}
+    .nav-user{gap:6px;}
+    .nav-user > span{display:none;}
+    .btn-icon{padding:7px 8px;}
+    .avatar{width:26px;height:26px;font-size:11px;}
+
+    /* O trio "Pins agrupados / Calor (todos os casos) / Calor por bairro"
+       tem white-space:nowrap e não quebra linha sozinho — isso força ~409px
+       de largura e estica a página inteira (não só a seção do mapa), o que
+       também empurra as ações do header pra fora da tela. Deixando o grupo
+       quebrar em 2 linhas resolve os dois de uma vez. */
+    .segmented{flex-wrap:wrap;}
+    .segmented button{padding:7px 10px;font-size:11.5px;}
+  }
 </style>
 </head>
 <body>
@@ -862,6 +885,16 @@
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/d3-delaunay@6/dist/d3-delaunay.min.js"></script>
 <script>
+/* Escapa texto vindo de CSV/API antes de interpolar em innerHTML/popup/
+   tooltip. "Importar focos" aceita um CSV arbitrário do usuário — sem isso,
+   um campo como bairro/endereco/tipo com "<img src=x onerror=...>" executa
+   no navegador de quem abrir o painel. */
+function escapeHTML(str){
+  return String(str ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
 /* =========================================================
    ÍCONES (SVG inline, estilo outline — sem emojis)
    ========================================================= */
@@ -1475,6 +1508,11 @@ function authSet(){ try{ sessionStorage.setItem("aeroscan_auth","1"); }catch(e){
 function authClear(){ try{ sessionStorage.removeItem("aeroscan_auth"); }catch(e){} }
 function authGet(){ try{ return sessionStorage.getItem("aeroscan_auth"); }catch(e){ return null; } }
 
+// Gate cosmético de demonstração, NÃO é controle de acesso: a credencial fica
+// hardcoded e visível no HTML/JS do cliente, e todo o conteúdo de #app já
+// está carregado no DOM antes do login (só alterna display). Qualquer pessoa
+// com o DevTools aberto vê os dados sem digitar senha nenhuma. Serve só pra
+// dar uma tela de login na demo do MVP — não protege nada de verdade.
 function doLogin(usr, pwd){
   if(usr === "Admin" && pwd === "admin123"){
     authSet();
@@ -1808,6 +1846,15 @@ let heatLayersBairroAtivos = [];
 let modoVisualizacao = "pins";
 let dataMaxSelecionada = null; // null = sem filtro de período (mostra tudo)
 
+// Enquadra o mapa nos polígonos dos bairros (a mesma visão da cidade usada
+// no carregamento inicial). Reaproveitada ao trocar de modo de visualização
+// em initMapaControles() — sem isso, o heatmap pode deixar o mapa numa
+// visão muito aberta e nada devolve o zoom da cidade depois.
+function enquadrarMapaNaCidade(){
+  const bounds = L.latLngBounds(Object.values(poligonoLayers).map(p=>p.getBounds()).flatMap(b=>[b.getNorthEast(), b.getSouthWest()]));
+  window._map.fitBounds(bounds, {padding:[36,36]});
+}
+
 function montarMapa(){
   const map = L.map("map", {zoomControl:false}).setView([-22.2546,-45.7038], 14);
   L.control.zoom({position:"bottomright"}).addTo(map);
@@ -1855,15 +1902,14 @@ function montarMapa(){
     }).addTo(grupoBairros);
 
     poly.bindPopup(popupBairroHTML(b), {maxWidth:300});
-    poly.bindTooltip(`${b.nome} — score ${b.score}/10`, {sticky:true});
+    poly.bindTooltip(`${escapeHTML(b.nome)} — score ${b.score}/10`, {sticky:true});
     poly.on("mouseover", ()=>poly.setStyle({fillOpacity:0.6}));
     poly.on("mouseout", ()=>poly.setStyle({fillOpacity:0.42}));
     poligonoLayers[b.nome] = poly;
   });
 
   // enquadra o mapa para mostrar todos os bairros com uma margem confortável
-  const todosBounds = L.latLngBounds(Object.values(poligonoLayers).map(p=>p.getBounds()).flatMap(b=>[b.getNorthEast(), b.getSouthWest()]));
-  map.fitBounds(todosBounds, {padding:[36,36]});
+  enquadrarMapaNaCidade();
 
   // aplica blur via CSS nos glows (path gerado pelo Leaflet)
   const style = document.createElement("style");
@@ -1886,11 +1932,12 @@ function montarMapa(){
 
 function popupBairroHTML(b){
   const nivelLabel = b.nivel==="alto"?"ALTO":(b.nivel==="medio"?"MÉDIO":"BAIXO");
+  const nomeEsc = escapeHTML(b.nome);
   return `
     <div class="popup-card">
-      <div class="popup-head">${icon("pin",15)}<h4>${b.nome}</h4></div>
+      <div class="popup-head">${icon("pin",15)}<h4>${nomeEsc}</h4></div>
       <table>
-        <tr><td>Bairro</td><td><b>${b.nome}</b></td></tr>
+        <tr><td>Bairro</td><td><b>${nomeEsc}</b></td></tr>
         <tr><td>Nível de risco</td><td><span class="nivel-pill" style="background:${b.cor}">${nivelLabel}</span></td></tr>
         <tr><td>Casos (total)</td><td><b>${b.casosTotais}</b></td></tr>
         <tr><td>Confirmados (14 dias)</td><td><b>${b.confirmados14d}</b></td></tr>
@@ -1914,8 +1961,9 @@ function criarMarcadorCaso(c){
     radius: 6.5, color:"#fff", weight:2, fillColor: STATUS_HEX[c.status] || STATUS_HEX.suspeito, fillOpacity:1
   });
 
+  const idEsc = escapeHTML(c.id);
   const fotoRow = c.foto ? `
-    <div class="popup-image-link" onclick="abrirLightboxCaso('${c.id}')">
+    <div class="popup-image-link" onclick="abrirLightboxCaso('${idEsc}')">
       <img src="${c.foto}" alt="">
       Ver foto do local
     </div>` : "";
@@ -1924,16 +1972,16 @@ function criarMarcadorCaso(c){
     <div class="popup-card">
       <div class="popup-head">${icon(meta.icon,15)}<h4>${meta.label}</h4></div>
       <table>
-        <tr><td>ID</td><td><b>${c.id}</b></td></tr>
-        <tr><td>Rua / local</td><td><b>${c.endereco}</b></td></tr>
-        <tr><td>Bairro</td><td>${c.bairro}</td></tr>
+        <tr><td>ID</td><td><b>${idEsc}</b></td></tr>
+        <tr><td>Rua / local</td><td><b>${escapeHTML(c.endereco)}</b></td></tr>
+        <tr><td>Bairro</td><td>${escapeHTML(c.bairro)}</td></tr>
         <tr><td>Data</td><td>${formatarData(c.data)}</td></tr>
-        <tr><td>Status</td><td><span class="status-pill status-${c.status}">${meta.label.toUpperCase()}</span></td></tr>
+        <tr><td>Status</td><td><span class="status-pill status-${escapeHTML(c.status)}">${meta.label.toUpperCase()}</span></td></tr>
       </table>
       ${fotoRow}
     </div>
   `);
-  marker.bindTooltip(c.endereco, {sticky:true});
+  marker.bindTooltip(escapeHTML(c.endereco), {sticky:true});
   casoMarkers[c.id] = marker;
   return marker;
 }
@@ -1951,18 +1999,20 @@ function criarMarcadorFoco(f){
   const temFotoReal = !!f.foto;
   const srcImagem = temFotoReal ? f.foto : FOCO_IMG[f.tipo];
   const textoImagem = temFotoReal ? "Ver foto do foco" : "Ver imagem de exemplo da detecção";
+  const idEsc = escapeHTML(f.id);
+  const tipoEsc = escapeHTML(f.tipo[0].toUpperCase()+f.tipo.slice(1));
   marker.bindPopup(`
     <div class="popup-card">
       <div class="popup-head">${icon("drone",15)}<h4>Foco detectado por drone</h4></div>
       <table>
-        <tr><td>ID</td><td><b>${f.id}</b></td></tr>
-        <tr><td>Tipo</td><td>${f.tipo[0].toUpperCase()+f.tipo.slice(1)}</td></tr>
+        <tr><td>ID</td><td><b>${idEsc}</b></td></tr>
+        <tr><td>Tipo</td><td>${tipoEsc}</td></tr>
         <tr><td>Confiança IA</td><td><b style="color:${corConf}">${confPct}% (${nivelConf})</b></td></tr>
         <tr><td>Data</td><td>${formatarData(f.data)}</td></tr>
-        <tr><td>Bairro</td><td>${f.bairro}</td></tr>
+        <tr><td>Bairro</td><td>${escapeHTML(f.bairro)}</td></tr>
         ${f.semGPS ? `<tr><td>Localização</td><td style="color:var(--text-faint)">Aproximada (sem fix de GPS)</td></tr>` : ""}
       </table>
-      <div class="popup-image-link" onclick="abrirLightboxFoco('${f.id}')">
+      <div class="popup-image-link" onclick="abrirLightboxFoco('${idEsc}')">
         <img src="${srcImagem}" alt="">
         ${textoImagem}
       </div>
@@ -2046,6 +2096,10 @@ function initMapaControles(){
     modoVisualizacao = btn.dataset.modo;
     document.querySelectorAll("#modo-visualizacao button").forEach(b=>b.classList.toggle("active", b===btn));
     aplicarModoVisualizacao();
+    // O heatmap não move o mapa sozinho, mas pode deixá-lo numa visão muito
+    // aberta; trocar de modo sempre devolve o mesmo enquadramento da cidade
+    // usado no carregamento inicial, em vez de deixar o zoom preso onde caiu.
+    enquadrarMapaNaCidade();
   });
 }
 
@@ -2437,21 +2491,23 @@ function renderCasos(){
 
   list.innerHTML = pagina.map(c=>{
     const meta = STATUS_META[c.status] || STATUS_META.suspeito;
-    const thumb = c.foto ? `<img class="case-thumb" src="${c.foto}" data-lightbox-caso="${c.id}" alt="Foto do local" title="Ver foto">` : "";
+    const idEsc = escapeHTML(c.id);
+    const statusEsc = escapeHTML(c.status);
+    const thumb = c.foto ? `<img class="case-thumb" src="${c.foto}" data-lightbox-caso="${idEsc}" alt="Foto do local" title="Ver foto">` : "";
     return `
     <div class="case-row">
-      <div class="case-status-icon ${c.status}">${icon(meta.icon,16,2.1)}</div>
+      <div class="case-status-icon ${statusEsc}">${icon(meta.icon,16,2.1)}</div>
       <div class="case-main">
-        <div class="case-address">${c.endereco}</div>
-        <div class="case-meta"><span class="tag">${c.bairro}</span><span>${formatarData(c.data)}</span></div>
+        <div class="case-address">${escapeHTML(c.endereco)}</div>
+        <div class="case-meta"><span class="tag">${escapeHTML(c.bairro)}</span><span>${formatarData(c.data)}</span></div>
       </div>
       <div class="case-right">
         ${thumb}
-        <span class="status-pill status-${c.status}">${meta.label.toUpperCase()}</span>
-        <span class="case-id">${c.id}</span>
+        <span class="status-pill status-${statusEsc}">${meta.label.toUpperCase()}</span>
+        <span class="case-id">${idEsc}</span>
         <div class="case-actions">
-          <button class="icon-btn" data-action="editar" data-id="${c.id}" title="Editar caso">${icon("edit",14,2)}</button>
-          <button class="icon-btn danger" data-action="excluir" data-id="${c.id}" title="Excluir caso">${icon("trash",14,2)}</button>
+          <button class="icon-btn" data-action="editar" data-id="${idEsc}" title="Editar caso">${icon("edit",14,2)}</button>
+          <button class="icon-btn danger" data-action="excluir" data-id="${idEsc}" title="Excluir caso">${icon("trash",14,2)}</button>
         </div>
       </div>
     </div>

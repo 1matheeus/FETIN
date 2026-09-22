@@ -16,6 +16,7 @@ Resultado:
 """
 
 import cv2
+import numpy as np
 import os
 import argparse
 import json
@@ -25,58 +26,79 @@ from datetime import datetime
 # ─────────────────────────────────────────
 # CONFIGURAÇÕES
 # ─────────────────────────────────────────
-OUTPUT_DIR     = Path("blur_output")
-LOG_FILE       = OUTPUT_DIR / "blur_log.json"
-BLUR_INTENSITY = 30        # quanto mais alto, mais borrado (múltiplo de 2 + 1)
-FATOR_ESCALA   = 1.03      # scaleFactor do Haar cascade (não alterar)
-VIZINHOS_MIN   = 5         # mínimo de vizinhos para detectar rosto (mais alto = menos falsos positivos)
-TAMANHO_MIN    = (30, 30)  # tamanho mínimo do rosto em pixels
+OUTPUT_DIR      = Path("blur_output")
+LOG_FILE        = OUTPUT_DIR / "blur_log.json"
+BLUR_INTENSITY  = 100         # quanto mais alto, mais borrado (múltiplo de 2 + 1)
+CONFIANCA_MIN   = 0.5         # confiança mínima do DNN para considerar um rosto válido
+TAMANHO_ENTRADA = (300, 300)  # tamanho de entrada esperado pelo modelo res10_300x300_ssd
 
 # ─────────────────────────────────────────
-# DETECTOR DE ROSTOS (Haar Cascade)
-# Já vem incluso no OpenCV — sem download extra.
+# DETECTOR DE ROSTOS (DNN — SSD sobre ResNet-10, Caffe)
+# Muito mais robusto que Haar Cascade em rosto pequeno, ângulo fechado e
+# pouca luz — o cenário típico de foto aérea de drone.
+#
+# Os pesos são um binário grande e NÃO vão para o repositório (ver
+# .gitignore). Baixe os dois arquivos abaixo e coloque em drone/modelos_dnn/:
+#   deploy.prototxt
+#     https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt
+#   res10_300x300_ssd_iter_140000.caffemodel
+#     https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel
+#
 # O carregamento é preguiçoso de propósito: este módulo é importado pelo
 # detectar_foco.py, e uma falha aqui não pode derrubar a importação. Ela
 # precisa chegar a quem chama, que decide o que fazer (ver `anonimizar`).
 # ─────────────────────────────────────────
-CASCADE_FRONTAL = 'haarcascade_frontalface_default.xml'
-CASCADE_PERFIL  = 'haarcascade_profileface.xml'
+PASTA_MODELOS    = Path(__file__).resolve().parent / 'modelos_dnn'
+ARQUIVO_PROTOTXT = PASTA_MODELOS / 'deploy.prototxt'
+ARQUIVO_PESOS    = PASTA_MODELOS / 'res10_300x300_ssd_iter_140000.caffemodel'
 
 _detectores = None
 
 
 def carregar_detectores():
-    """Carrega os cascades uma única vez, na primeira chamada."""
+    """Carrega a rede DNN uma única vez, na primeira chamada."""
     global _detectores
     if _detectores is None:
-        frontal = cv2.CascadeClassifier(cv2.data.haarcascades + CASCADE_FRONTAL)
-        perfil  = cv2.CascadeClassifier(cv2.data.haarcascades + CASCADE_PERFIL)
-        if frontal.empty():
-            raise RuntimeError("Detector de rostos não encontrado. Reinstale o OpenCV.")
-        _detectores = (frontal, perfil)
+        if not ARQUIVO_PROTOTXT.exists() or not ARQUIVO_PESOS.exists():
+            raise RuntimeError(
+                f'Modelo DNN de detecção facial não encontrado em {PASTA_MODELOS}/. '
+                'Baixe deploy.prototxt e res10_300x300_ssd_iter_140000.caffemodel '
+                '(links no comentário no topo deste módulo).'
+            )
+        rede = cv2.dnn.readNetFromCaffe(str(ARQUIVO_PROTOTXT), str(ARQUIVO_PESOS))
+        if rede.empty():
+            raise RuntimeError('Falha ao carregar o modelo DNN de detecção facial.')
+        _detectores = rede
     return _detectores
 
 # ─────────────────────────────────────────
 # FUNÇÕES
 # ─────────────────────────────────────────
 
-def detectar_rostos(imagem_cinza):
-    """Detecta rostos frontais e de perfil na imagem."""
-    detector_frontal, detector_perfil = carregar_detectores()
+def detectar_rostos(imagem):
+    """Detecta rostos em um frame BGR com o detector DNN."""
+    rede = carregar_detectores()
+    altura, largura = imagem.shape[:2]
+
+    blob = cv2.dnn.blobFromImage(
+        imagem, scalefactor=1.0, size=TAMANHO_ENTRADA,
+        mean=(104.0, 177.0, 123.0), swapRB=False, crop=False,
+    )
+    rede.setInput(blob)
+    deteccoes = rede.forward()
 
     rostos = []
-    for detector in (detector_frontal, detector_perfil):
-        if detector.empty():
+    for i in range(deteccoes.shape[2]):
+        confianca = float(deteccoes[0, 0, i, 2])
+        if confianca < CONFIANCA_MIN:
             continue
-        encontrados = detector.detectMultiScale(
-            imagem_cinza,
-            scaleFactor=FATOR_ESCALA,
-            minNeighbors=VIZINHOS_MIN,
-            minSize=TAMANHO_MIN,
-            flags=cv2.CASCADE_SCALE_IMAGE,
-        )
-        if len(encontrados) > 0:
-            rostos.extend(encontrados.tolist())
+        caixa = deteccoes[0, 0, i, 3:7] * np.array([largura, altura, largura, altura])
+        x1, y1, x2, y2 = caixa.astype(int)
+        x1, y1 = max(0, x1), max(0, y1)
+        x2, y2 = min(largura, x2), min(altura, y2)
+        if x2 <= x1 or y2 <= y1:
+            continue
+        rostos.append([x1, y1, x2 - x1, y2 - y1])
 
     return rostos
 
@@ -85,16 +107,13 @@ def anonimizar(imagem):
     """Borra todos os rostos de um frame BGR.
 
     É a porta de entrada para quem só quer a imagem anonimizada, sem lidar
-    com conversão de cor nem com a lista de rostos: `detectar_foco.py` e
-    `demo.py` chamam esta função antes de gravar qualquer foto em disco.
+    com a lista de rostos: `detectar_foco.py` e `demo.py` chamam esta função
+    antes de gravar qualquer foto em disco.
 
     Devolve (imagem_borrada, quantidade_de_rostos). A imagem devolvida é
     sempre uma cópia — o frame original não é alterado.
     """
-    cinza = cv2.cvtColor(imagem, cv2.COLOR_BGR2GRAY)
-    cinza = cv2.equalizeHist(cinza)
-
-    rostos = detectar_rostos(cinza)
+    rostos = detectar_rostos(imagem)
     if not rostos:
         return imagem.copy(), 0
 
@@ -175,11 +194,9 @@ def processar_video(caminho_entrada, dir_saida):
             break
 
         frame_num += 1
-        cinza = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        cinza = cv2.equalizeHist(cinza)
 
         if frame_num % 3 == 0:
-            rostos = detectar_rostos(cinza)
+            rostos = detectar_rostos(frame)
             total_rostos += len(rostos)
         else:
             rostos = []
@@ -205,7 +222,7 @@ def processar_video(caminho_entrada, dir_saida):
     }
 
 
-def processar_camera_ao_vivo():
+def processar_camera_ao_vivo(intensidade=BLUR_INTENSITY):
     """Modo câmera ao vivo — mostra blur em tempo real (para a demo da banca)."""
     print("\n🎥 Modo câmera ao vivo — pressione Q para sair, S para salvar screenshot")
     cap = cv2.VideoCapture(0)
@@ -222,10 +239,8 @@ def processar_camera_ao_vivo():
         if not ret:
             break
 
-        cinza  = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        cinza  = cv2.equalizeHist(cinza)
-        rostos = detectar_rostos(cinza)
-        frame_saida = aplicar_blur(frame, rostos)
+        rostos = detectar_rostos(frame)
+        frame_saida = aplicar_blur(frame, rostos, intensidade)
 
         cv2.putText(frame_saida, f"AeroScan LGPD | Rostos: {len(rostos)}",
                     (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
@@ -264,7 +279,7 @@ def main():
     args = parser.parse_args()
 
     if args.camera:
-        processar_camera_ao_vivo()
+        processar_camera_ao_vivo(args.intensidade)
         return
 
     if not args.input:

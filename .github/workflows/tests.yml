@@ -1,0 +1,61 @@
+name: Testes
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  anonimizacao:
+    name: Anonimização de rostos (drone/testar_anonimizacao.py)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # opencv-python (não-headless) depende de libGL, que o runner do
+      # GitHub Actions não traz por padrão — sem isso o "import cv2" quebra.
+      - name: Instalar libs de sistema exigidas pelo opencv-python
+        run: sudo apt-get update && sudo apt-get install -y libgl1 libglib2.0-0
+
+      # Só o necessário pra rodar este teste: o teste faz stub de
+      # `ultralytics` antes de importar detectar_foco, então o resto de
+      # requirements.txt (roboflow, pandas, folium, pyserial, ...) não entra.
+      - name: Instalar dependências mínimas (opencv-python + numpy)
+        run: pip install "opencv-python<5" numpy
+
+      # Pesos do detector DNN de rostos: binário grande, não vai pro repo
+      # (ver drone/blur_lgpd.py e .gitignore). Sem isso o teste 2 quebra com
+      # RuntimeError não capturado — "falha fechada" por design.
+      - name: Baixar pesos do detector DNN de rostos
+        run: |
+          mkdir -p drone/modelos_dnn
+          curl -fsSL -o drone/modelos_dnn/deploy.prototxt \
+            https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt
+          curl -fsSL -o drone/modelos_dnn/res10_300x300_ssd_iter_140000.caffemodel \
+            https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel
+
+      - name: Rodar testes de anonimização
+        run: python3 drone/testar_anonimizacao.py
+
+  banco:
+    name: Schema do banco (api/scripts/testar_banco.py)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Só stdlib (sqlite3, json, pathlib) — nenhum pip install necessário.
+
+      # carga.sql é gerado, não fica no repositório (ver .gitignore /
+      # api/scripts/exportar_para_banco.py). O teste depende dele existir.
+      - name: Gerar carga.sql a partir dos dados publicados
+        run: python3 api/scripts/exportar_para_banco.py
+
+      - name: Rodar testes do banco
+        run: python3 api/scripts/testar_banco.py

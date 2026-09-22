@@ -254,9 +254,14 @@ python -m http.server 8000
 
 No GitHub Pages isso não é um problema — o fetch funciona normalmente.
 
-**Login de demonstração:** usuário `Admin`, senha `admin123` (autenticação
-simples no front-end, apenas para fins de demonstração do MVP — não usar com
-dados reais sem um backend de verdade).
+**Login de demonstração:** usuário `Admin`, senha `admin123`. ⚠️ É uma
+checagem **client-side apenas**, feita só para dar uma tela de login na demo
+do MVP — a senha fica em texto puro no próprio HTML/JS e todo o conteúdo do
+painel já está carregado no navegador antes do login (o login só alterna
+`display`). Ela **não protege nenhum dado real** nem substitui autenticação
+de verdade. Uma versão de produção precisaria de autenticação no backend
+(`api/`, o Worker) que só libere dados sensíveis para quem tiver uma sessão
+válida — nunca confiar em checagem feita no JS do cliente.
 
 ### O que tem no painel
 

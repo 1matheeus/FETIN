@@ -20,6 +20,9 @@ blur_output/
 mapa_aeroscan.html
 runs/detect/
 
+# Pesos do detector DNN de rostos (binário grande, baixe via drone/blur_lgpd.py)
+drone/modelos_dnn/
+
 # Ambiente virtual local
 venv/
 .venv/
