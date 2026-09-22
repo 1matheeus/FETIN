@@ -38,11 +38,10 @@ TAMANHO_ENTRADA = (300, 300)  # tamanho de entrada esperado pelo modelo res10_30
 # pouca luz — o cenário típico de foto aérea de drone.
 #
 # Os pesos são um binário grande e NÃO vão para o repositório (ver
-# .gitignore). Baixe os dois arquivos abaixo e coloque em drone/modelos_dnn/:
-#   deploy.prototxt
-#     https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt
-#   res10_300x300_ssd_iter_140000.caffemodel
-#     https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel
+# .gitignore). Em qualquer computador novo, rode primeiro:
+#   python drone/instalar_modelo_dnn.py
+# (baixa deploy.prototxt + res10_300x300_ssd_iter_140000.caffemodel para
+# drone/modelos_dnn/ — sem argumentos, sem dependências além do Python).
 #
 # O carregamento é preguiçoso de propósito: este módulo é importado pelo
 # detectar_foco.py, e uma falha aqui não pode derrubar a importação. Ela
