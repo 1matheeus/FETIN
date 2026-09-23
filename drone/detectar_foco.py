@@ -24,8 +24,14 @@ Lógica:
     — nenhuma imagem sai daqui sem anonimização
   - Salva o CSV e as fotos na Área de Trabalho (Desktop), sempre no
     mesmo arquivo — cada nova detecção só adiciona uma linha nele
-  - Para levar os focos para o site, use o botão "Importar focos"
-    do dashboard e selecione esse CSV (+ as fotos) na Área de Trabalho
+  - Se AEROSCAN_TOKEN estiver definido (ou --token-api), cada foco
+    confirmado TAMBÉM é publicado na API de vigilância (POST
+    /api/deteccoes) — aparece no dashboard pra qualquer pessoa, sem
+    precisar de "Importar focos" manual. Falha de rede aqui nunca
+    derruba a sessão: o CSV local já foi salvo antes desta tentativa
+  - Sem token, ou como reserva se a API estiver fora do ar: use o botão
+    "Importar focos" do dashboard e selecione o CSV (+ as fotos) na
+    Área de Trabalho
 
 Como usar:
   pip install ultralytics opencv-python pyserial
@@ -42,6 +48,13 @@ Flags opcionais:
   --sem-gps               modo sem GPS (usa coordenadas manuais)
   --sem-rede              não tenta localização por rede (Wi-Fi do SO / IP)
   --saida ~/Desktop       pasta onde salvar o CSV e as fotos (padrão: Área de Trabalho)
+  --api URL               URL base da API de vigilância (padrão: a API em produção)
+  --sem-api               não publica as detecções na API — fica só no CSV local
+  --token-api TOKEN       token de cadastro da API (Bearer). Prefira a variável de
+                          ambiente AEROSCAN_TOKEN — assim ele não fica no histórico
+                          do terminal nem em capturas de tela da demo:
+                            export AEROSCAN_TOKEN="o-token-de-verdade"
+                            python drone/detectar_foco.py --gps-rede ...
 
 GPS real do celular pela rede (--gps-rede, recomendado sem módulo GPS):
   O celular roda um app que transmite as sentenças NMEA do GPS dele por
@@ -69,8 +82,10 @@ import cv2
 import csv
 import json
 import time
+import uuid
 import argparse
 import threading
+import urllib.request
 from pathlib import Path
 from datetime import datetime
 from ultralytics import YOLO
@@ -85,6 +100,7 @@ TEMPO_CONFIRMACAO = 3.0
 CLASSES           = ['pool', 'tire']
 MODELO_PATH       = 'runs/drone_v1/weights/best.pt'
 CSV_NOME          = 'focos_detectados_mvp.csv'
+API_BASE_PADRAO   = 'https://projetofetin.eduardo-filhagosa.workers.dev/api'
 CENTRO_CIDADE     = (-22.2535, -45.7040)  # Santa Rita do Sapucaí, MG
 RAIO_MAXIMO_KM    = 60  # além disso, a localização por rede é descartada
 
@@ -435,6 +451,72 @@ class GPSRede(GPS):
                 pass
 
 
+def _multipart_encode(campos, arquivo=None):
+    """Monta um corpo multipart/form-data à mão (só biblioteca padrão — sem
+    puxar `requests` como dependência nova só por causa disto).
+
+    `campos` é {nome: valor} (texto); `arquivo`, se houver, é
+    (nome_do_arquivo, bytes, content_type) e vai no campo "foto".
+    Devolve (corpo_em_bytes, content_type_com_boundary).
+    """
+    boundary = uuid.uuid4().hex
+    partes = []
+    for chave, valor in campos.items():
+        partes.append(
+            f'--{boundary}\r\n'
+            f'Content-Disposition: form-data; name="{chave}"\r\n\r\n'
+            f'{valor}\r\n'.encode('utf-8')
+        )
+    if arquivo:
+        nome, dados, tipo = arquivo
+        partes.append(
+            f'--{boundary}\r\n'
+            f'Content-Disposition: form-data; name="foto"; filename="{nome}"\r\n'
+            f'Content-Type: {tipo}\r\n\r\n'.encode('utf-8')
+            + dados + b'\r\n'
+        )
+    partes.append(f'--{boundary}--\r\n'.encode('utf-8'))
+    return b''.join(partes), f'multipart/form-data; boundary={boundary}'
+
+
+def enviar_deteccao_api(api_base, token, classe, confianca, lat, lon, data_deteccao, caminho_foto):
+    """Espelha a detecção pra API de vigilância (Cloudflare Worker + D1 + R2),
+    pra ela aparecer no dashboard pra QUALQUER pessoa que abrir o site — não só
+    em quem importar o CSV manualmente na própria sessão do navegador.
+
+    Melhor esforço, de propósito: a detecção já foi salva no CSV local antes
+    desta função ser chamada (ver RegistradorFocos.registrar), então uma falha
+    aqui — sem internet, API fora do ar, token errado — não pode derrubar a
+    sessão de detecção. Só avisa e segue. Nunca levanta exceção pra quem chama.
+    """
+    campos = {
+        'classe_origem': classe,
+        'confianca':     f'{confianca:.4f}',
+        'lon':           f'{lon:.6f}',
+        'lat':           f'{lat:.6f}',
+        'data_deteccao': data_deteccao,
+    }
+    arquivo = None
+    if caminho_foto and Path(caminho_foto).exists():
+        arquivo = (Path(caminho_foto).name, Path(caminho_foto).read_bytes(), 'image/jpeg')
+
+    corpo, content_type = _multipart_encode(campos, arquivo)
+    req = urllib.request.Request(
+        f'{api_base}/deteccoes', data=corpo, method='POST',
+        headers={'Authorization': f'Bearer {token}', 'Content-Type': content_type},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            resposta = json.loads(resp.read().decode('utf-8'))
+        id_api = resposta.get('deteccao', {}).get('deteccao_id', '?')
+        print(f'  ☁️  Também publicado na API (id {id_api}) — já aparece no dashboard pra todo mundo.')
+        return True
+    except Exception as e:
+        print(f'  ⚠️  Não deu pra publicar na API ({e}). Sem problema: já está salvo no CSV local,')
+        print('     dá pra importar manualmente pelo dashboard depois.')
+        return False
+
+
 class RegistradorFocos:
     def __init__(self, saida_dir):
         self.saida_dir = Path(saida_dir)
@@ -557,7 +639,23 @@ def main():
                          help='Não tenta localização aproximada pela rede (Wi-Fi do SO / IP) como alternativa ao GPS')
     parser.add_argument('--saida',   type=str,   default=None,
                          help='Pasta onde salvar o CSV e as fotos (padrão: Área de Trabalho)')
+    parser.add_argument('--api', type=str, default=API_BASE_PADRAO,
+                         help='URL base da API de vigilância — cada foco confirmado também é '
+                              'publicado lá, e aparece no dashboard pra qualquer pessoa, sem '
+                              'precisar de importação manual de CSV (padrão: a API em produção)')
+    parser.add_argument('--sem-api', action='store_true',
+                         help='Não publica as detecções na API — fica só no CSV/fotos local, '
+                              'pra importar manualmente depois')
+    parser.add_argument('--token-api', type=str, default=os.environ.get('AEROSCAN_TOKEN'),
+                         help='Token de cadastro da API (Bearer). Pega da variável de ambiente '
+                              'AEROSCAN_TOKEN se não for passado aqui — assim o token não fica '
+                              'salvo no histórico do terminal nem em capturas de tela da demo.')
     args = parser.parse_args()
+
+    if not args.sem_api and not args.token_api:
+        print('\nℹ️  Sem --token-api nem AEROSCAN_TOKEN definido: as detecções vão ficar só no')
+        print('    CSV/fotos local (Área de Trabalho) — nada é publicado na API automaticamente.')
+        print('    Pra publicar, defina AEROSCAN_TOKEN ou use --sem-api pra sumir com este aviso.')
 
     saida_dir = Path(args.saida).expanduser() if args.saida else pasta_area_trabalho()
 
@@ -685,6 +783,11 @@ def main():
 
             registrador.registrar(classe, confianca, lat, lon,
                                   img_nome if salvo else None)
+
+            if not args.sem_api and args.token_api:
+                enviar_deteccao_api(args.api, args.token_api, classe, confianca, lat, lon,
+                                     datetime.now().strftime('%Y-%m-%d'),
+                                     img_path if salvo else None)
 
         frame_display = result.plot()
         h, w = frame_display.shape[:2]

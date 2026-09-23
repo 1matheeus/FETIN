@@ -54,13 +54,20 @@ vistorias.
 5. O foco (com foto, se a anonimização deu certo) é salvo na Área de
    Trabalho/Desktop do computador, sempre no mesmo arquivo
    `focos_detectados_mvp.csv` — cada nova detecção só adiciona uma linha nele.
-6. No dashboard, o botão **"Importar focos"** (seção Mapa de risco) deixa
-   selecionar esse CSV + as fotos da Área de Trabalho para colocá-los no mapa,
-   sem precisar de nenhum backend.
-7. Em paralelo, o dashboard também pode consumir uma **API real** de casos de
-   dengue e detecções (Cloudflare Worker + D1 — pasta `api/`), com fallback
-   automático para os CSVs locais e depois para dados estáticos se a API não
-   responder.
+6. Se a variável de ambiente `AEROSCAN_TOKEN` estiver definida, o mesmo foco
+   também é publicado direto na **API de vigilância** (`POST
+   /api/deteccoes` — pasta `api/`), foto incluída (guardada num bucket R2).
+   Isso é o que faz o foco aparecer no dashboard **para qualquer pessoa que
+   abra o site**, sem precisar de nenhuma ação manual. É melhor esforço: se
+   a rede falhar, o CSV local já foi salvo de qualquer forma.
+7. Sem token, ou como reserva se a API estiver fora do ar: o botão
+   **"Importar focos"** (seção Mapa de risco do dashboard) deixa selecionar
+   o CSV + as fotos da Área de Trabalho manualmente — mas só entram no mapa
+   **daquela sessão do navegador**, não ficam salvos para outras pessoas.
+8. Em paralelo, o dashboard consome essa mesma **API real** de casos de
+   dengue e detecções (Cloudflare Worker + D1 + R2 — pasta `api/`), com
+   fallback automático para os CSVs locais e depois para dados estáticos se
+   a API não responder.
 
 ---
 
@@ -175,6 +182,13 @@ python drone/detectar_foco.py --gps-rede 192.168.0.42:11123
 | `--sem-gps` | Modo sem GPS para testes em bancada | — |
 | `--sem-rede` | Não tenta localização por rede (Wi-Fi do SO / IP) como alternativa | — |
 | `--saida` | Pasta onde salvar o CSV e as fotos | Área de Trabalho |
+| `--api` | URL base da API de vigilância, para publicar cada foco automaticamente | a API em produção |
+| `--sem-api` | Não publica as detecções na API — fica só no CSV/fotos local | — |
+| `--token-api` | Token de cadastro da API (Bearer). Prefira a variável de ambiente `AEROSCAN_TOKEN` | `$AEROSCAN_TOKEN` |
+
+Com o token definido, cada foco confirmado aparece sozinho no dashboard, para
+qualquer pessoa — sem token, funciona do mesmo jeito de sempre, só ficando no
+CSV local até alguém importar manualmente.
 
 ### De onde vem a localização de cada foco
 

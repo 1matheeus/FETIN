@@ -42,6 +42,17 @@
       "database_name": "vigilancia",
       "database_id": "659ee2d6-e140-42eb-a9fa-243929329da0"
     }
+  ],
+
+  // Bucket R2 para as fotos dos focos detectados pelo drone. PRECISA existir
+  // antes do deploy — rode `npx wrangler r2 bucket create aeroscan-fotos`
+  // uma vez (com a conta autenticada, `npx wrangler login`). O binding é
+  // FOTOS; o worker/index.js lê `env.FOTOS` em registrarDeteccao/servirFoto.
+  "r2_buckets": [
+    {
+      "binding": "FOTOS",
+      "bucket_name": "aeroscan-fotos"
+    }
   ]
 
   // Sem bloco `assets`: esta API não serve arquivos estáticos. O painel do

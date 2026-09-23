@@ -46,6 +46,9 @@ console.log(dados[0])
 | `GET /api/incidencia/celulas` | idem, por célula de 150 m |
 | `GET /api/canal` | canal endêmico: mediana e quartis por semana |
 | `GET /api/deteccoes` | focos detectados pela frente aérea |
+| `GET /api/deteccoes/foto/{id}` | a foto (já anonimizada) de uma detecção, se houver — bytes da imagem, direto do R2 |
+| `POST /api/casos` | cadastro de caso — ver [seção própria](#o-cadastro-de-casos) |
+| `POST /api/deteccoes` | cadastro de foco pelo AeroScan — ver [seção própria](#o-cadastro-de-detecções) |
 
 **Filtros** (valem em `/casos` e nas duas de incidência):
 `desde`, `ate` (AAAA-MM-DD), `bairro`, `celula`, `sexo`, `faixa_etaria`,
@@ -216,6 +219,69 @@ Eduardo — ele fica na conta da Cloudflare, não no repositório.
 A tabela identificada **não tem** criptografia em repouso, log de acesso nem
 política de retenção. Para demonstrar o desenho, a segregação basta. Para dado
 real, não — e isso está escrito no `db/schema.sql`, para quem for ler o código.
+
+---
+
+## O cadastro de detecções
+
+**`POST /api/deteccoes`** é o `drone/detectar_foco.py` publicando um foco
+confirmado direto no banco, pra ele aparecer no dashboard pra qualquer pessoa
+— sem precisar que alguém clique em "Importar focos" e escolha o CSV à mão.
+Mesmo token do cadastro de casos (`TOKEN_CADASTRO`).
+
+Diferente de `/api/casos`, o corpo é **`multipart/form-data`, não JSON** —
+porque a foto (opcional, já anonimizada por `blur_lgpd.py` antes de sair do
+computador de quem detectou) vai junto no mesmo POST:
+
+```js
+const form = new FormData()
+form.set('classe_origem', 'pool')       // ou 'tire' — vocabulário cru do modelo
+form.set('confianca', '0.74')           // 0–1
+form.set('lon', '-45.70732')
+form.set('lat', '-22.250659')
+form.set('data_deteccao', '2026-09-23') // AAAA-MM-DD; default é hoje se omitido
+form.set('foto', arquivoDeImagem)       // opcional — um File/Blob
+
+await fetch(`${API}/deteccoes`, {
+  method: 'POST',
+  headers: { Authorization: `Bearer ${TOKEN}` },
+  body: form,
+})
+```
+
+O servidor deduz `célula`/`bairro` da coordenada (mesma grade usada em
+`/api/casos`), gera o `deteccao_id` sequencial (`FD-NNN`), traduz
+`classe_origem` pro vocabulário do contrato (`pool` → `piscina_sem_tratamento`,
+`tire` → `pneus_empilhados`) e, se veio foto, guarda os bytes num bucket R2
+(`aeroscan-fotos`) — o banco só guarda a **chave** do objeto, nunca a imagem.
+A resposta traz `foto_url`, já pronta pra usar num `<img src>`:
+
+```json
+{
+  "ok": true,
+  "deteccao": {
+    "deteccao_id": "FD-006", "celula": "C019015", "bairro": "Centro",
+    "classe": "piscina_sem_tratamento", "classe_origem": "pool",
+    "confianca": 0.74, "lon": -45.70732, "lat": -22.250659,
+    "data_deteccao": "2026-09-23", "verificacao": "pendente",
+    "origem_imagem": "deteccoes/FD-006.jpg",
+    "foto_url": "/api/deteccoes/foto/FD-006"
+  }
+}
+```
+
+`GET /api/deteccoes/foto/{id}` devolve os bytes da imagem direto (não JSON) —
+é o que o `<img src>` do dashboard aponta pra, tanto pra essa detecção nova
+quanto pra qualquer uma antiga que já tenha `origem_imagem` preenchido. Sem
+foto, devolve 404 — o dashboard já sabe cair para a imagem de exemplo genérica
+nesse caso (ver `FOCO_IMG` em `dashboard/index.html`).
+
+**Falha fechada em duas pontas:** o script Python só chama este endpoint
+*depois* de já ter salvo a detecção no CSV local, e trata qualquer erro de
+rede/API como não-fatal — perder a publicação automática é aceitável; perder a
+detecção não é. Do outro lado, se o bucket `FOTOS` não estiver vinculado ao
+Worker, o endpoint responde 503 em vez de aceitar a detecção sem a foto
+silenciosamente.
 
 ---
 

@@ -453,6 +453,128 @@ async function cadastrar(request, env) {
   }, 201)
 }
 
+/** Vocabulário do contrato — a mesma tradução usada em `api/dados/deteccoes.json`. */
+const MAPA_CLASSE_DETECCAO = { pool: 'piscina_sem_tratamento', tire: 'pneus_empilhados' }
+
+/**
+ * Cadastro de detecção do drone (AeroScan). Mesma ideia do `cadastrar()` de
+ * casos — token compartilhado, servidor decide o que é público — mas aqui não
+ * há dado identificado nenhum para segregar: a detecção já nasce pública, o
+ * que ela aponta é um criadouro, não uma pessoa (ver comentário na tabela
+ * `deteccoes` em schema.sql).
+ *
+ * Corpo: multipart/form-data, não JSON — porque a foto (opcional) vai junto.
+ * Campos: classe_origem ('pool'|'tire'), confianca (0–1], lon, lat,
+ * data_deteccao (AAAA-MM-DD, opcional — default hoje), foto (arquivo, opcional).
+ */
+async function registrarDeteccao(request, env) {
+  const token = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '')
+  if (!env.TOKEN_CADASTRO) {
+    return erro('Cadastro desabilitado: o segredo TOKEN_CADASTRO não foi definido.', 503)
+  }
+  if (token !== env.TOKEN_CADASTRO) {
+    return erro('Token de cadastro ausente ou inválido.', 401)
+  }
+
+  if (!(request.headers.get('Content-Type') || '').includes('multipart/form-data')) {
+    return erro('Corpo inválido: esperado multipart/form-data (a foto, quando enviada, vai junto).')
+  }
+  let form
+  try {
+    form = await request.formData()
+  } catch {
+    return erro('Corpo inválido: falha ao ler multipart/form-data.')
+  }
+
+  const classeOrigem = form.get('classe_origem')
+  const classe = MAPA_CLASSE_DETECCAO[classeOrigem]
+  if (!classe) {
+    return erro('`classe_origem` deve ser "pool" ou "tire".')
+  }
+
+  const confianca = Number(form.get('confianca'))
+  if (!Number.isFinite(confianca) || confianca <= 0 || confianca > 1) {
+    return erro('`confianca` deve ser um número entre 0 (exclusivo) e 1.')
+  }
+
+  const lon = Number(form.get('lon'))
+  const lat = Number(form.get('lat'))
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+    return erro('`lon` e `lat` são obrigatórios e devem ser números.')
+  }
+
+  const dataDeteccao = form.get('data_deteccao') || new Date().toISOString().slice(0, 10)
+  if (!ISO.test(dataDeteccao)) {
+    return erro('`data_deteccao` deve ser AAAA-MM-DD.')
+  }
+
+  // Célula: mesma dedução usada no cadastro de caso. Fora da grade, a
+  // detecção é registrada assim mesmo — perder o foco por estar 200 m fora
+  // do perímetro mapeado seria pior que registrá-lo sem célula.
+  const achada = await celulaDe(env.DB, lon, lat)
+  const celula = achada?.celula ?? null
+  const bairro = achada?.bairro ?? null
+  const avisoCelula = achada ? null : 'Coordenada fora da grade urbana: detecção registrada sem célula.'
+
+  const ultimo = await env.DB.prepare(
+    'SELECT deteccao_id FROM deteccoes ORDER BY deteccao_id DESC LIMIT 1'
+  ).first()
+  const proximoNumero = ultimo ? Number(ultimo.deteccao_id.replace('FD-', '')) + 1 : 1
+  const id = `FD-${String(proximoNumero).padStart(3, '0')}`
+
+  // Foto: opcional, e falha fechada do lado de quem chama (ver
+  // drone/blur_lgpd.py) — se chegou até aqui com uma foto, ela já passou
+  // pelo borrão de rostos. Este endpoint só guarda o que recebeu.
+  let origemImagem = null
+  const foto = form.get('foto')
+  if (foto && typeof foto === 'object' && typeof foto.arrayBuffer === 'function' && foto.size > 0) {
+    if (!env.FOTOS) {
+      return erro('Upload de foto desabilitado: o bucket FOTOS não foi vinculado a este Worker.', 503)
+    }
+    const chave = `deteccoes/${id}.jpg`
+    await env.FOTOS.put(chave, await foto.arrayBuffer(), {
+      httpMetadata: { contentType: foto.type || 'image/jpeg' },
+    })
+    origemImagem = chave
+  }
+
+  await env.DB.prepare(`
+    INSERT INTO deteccoes
+      (deteccao_id, celula, bairro, classe, classe_origem, confianca, lon, lat,
+       data_deteccao, verificacao, origem_imagem)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendente', ?)
+  `).bind(id, celula, bairro, classe, classeOrigem, confianca, lon, lat, dataDeteccao, origemImagem).run()
+
+  return json({
+    ok: true,
+    deteccao: {
+      deteccao_id: id, celula, bairro, classe, classe_origem: classeOrigem,
+      confianca, lon, lat, data_deteccao: dataDeteccao, verificacao: 'pendente',
+      origem_imagem: origemImagem,
+      foto_url: origemImagem ? `/api/deteccoes/foto/${id}` : null,
+    },
+    ...(avisoCelula ? { aviso: avisoCelula } : {}),
+  }, 201)
+}
+
+/** Devolve os bytes da foto de uma detecção, direto do bucket R2. */
+async function servirFoto(id, env) {
+  if (!env.FOTOS) {
+    return erro('Bucket de fotos não vinculado a este Worker.', 503)
+  }
+  const objeto = await env.FOTOS.get(`deteccoes/${id}.jpg`)
+  if (!objeto) {
+    return erro('Foto não encontrada para esta detecção.', 404)
+  }
+  return new Response(objeto.body, {
+    headers: {
+      'Content-Type': objeto.httpMetadata?.contentType || 'image/jpeg',
+      'Cache-Control': 'public, max-age=86400',
+      ...CORS,
+    },
+  })
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url)
@@ -473,13 +595,16 @@ export default {
       const rota = url.pathname.replace(/^\/api\//, '').replace(/\/$/, '')
 
       if (request.method === 'POST') {
-        if (rota !== 'casos') {
-          return erro(`POST só existe em /api/casos. Recebido: /api/${rota}`, 404)
-        }
-        return await cadastrar(request, env)
+        if (rota === 'casos') return await cadastrar(request, env)
+        if (rota === 'deteccoes') return await registrarDeteccao(request, env)
+        return erro(`POST só existe em /api/casos e /api/deteccoes. Recebido: /api/${rota}`, 404)
       }
       if (request.method !== 'GET') {
-        return erro('Métodos aceitos: GET e POST /api/casos.', 405)
+        return erro('Métodos aceitos: GET, e POST em /api/casos ou /api/deteccoes.', 405)
+      }
+
+      if (rota.startsWith('deteccoes/foto/')) {
+        return await servirFoto(rota.slice('deteccoes/foto/'.length), env)
       }
 
       switch (rota) {
@@ -497,7 +622,9 @@ export default {
               'GET /api/incidencia/celulas': 'idem, por célula de 150 m',
               'GET /api/canal': 'canal endêmico: mediana e quartis por semana',
               'GET /api/deteccoes': 'focos detectados pela frente aérea',
+              'GET /api/deteccoes/foto/{id}': 'a foto (já anonimizada) de uma detecção, se houver — bytes da imagem, direto do R2',
               'POST /api/casos': 'cadastro de caso; exige Authorization: Bearer <token>. Separa o identificado do publicável e devolve só o publicável',
+              'POST /api/deteccoes': 'cadastro de foco pelo AeroScan (drone/detectar_foco.py); exige Authorization: Bearer <token>. multipart/form-data com classe_origem, confianca, lon, lat, data_deteccao e foto (opcional)',
             },
             privacidade: {
               publicado: CAMPOS_PUBLICOS,

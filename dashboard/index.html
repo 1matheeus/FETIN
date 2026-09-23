@@ -1082,6 +1082,12 @@ function focosDaAPI(dados){
     confianca: f.confianca,
     bairro: f.bairro || "Centro",
     imagemNome: f.origem_imagem || "",
+    // A foto (já anonimizada) fica no bucket R2 e o Worker serve os bytes
+    // direto por essa rota — não precisa de importação manual de CSV pra
+    // aparecer no popup/lightbox, como era antes de POST /api/deteccoes
+    // existir. `origem_imagem` vazio (detecção sem foto, ou vinda dos dados
+    // de exemplo) mantém `foto` null, e o popup cai na imagem genérica.
+    foto: f.origem_imagem ? `${API_BASE}/deteccoes/foto/${f.deteccao_id}` : null,
   })).filter(f => f.id && Number.isFinite(f.lat) && Number.isFinite(f.lng));
 }
 
