@@ -9,11 +9,12 @@ model = YOLO("yolov8n.pt")
 model.train(
     data=DATA_YAML,
     epochs=50,
+    patience=15,       # early stopping se val não melhorar por 15 épocas
     imgsz=640,
     batch=16,
     device="mps",
     project=RUNS_DIR,
-    name="drone_v1",
+    name="drone_v3",
     # --- augmentações para imagens de drone (vista aérea) ---
     degrees=180,       # rotação livre — objetos aparecem em qualquer ângulo
     flipud=0.5,        # flip vertical — vista de cima, simetria vertical

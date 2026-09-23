@@ -7,11 +7,12 @@ FORMAT = "yolov8"
 
 DATASETS = [
     ("pool-images",                                    "pool-detection-kmqaa",          1),
-    ("test-aobpj",                                     "pool-u62qo",                    1),
+    # test-aobpj/pool-u62qo: sem versão publicada no Roboflow (só imagens cruas,
+    # sem export gerado) — não é baixável via API até o dono gerar uma versão.
     ("swimming-pools",                                 "swimming-pools-detection",      1),
     ("piscina-piloto",                                 "swimming-pool-detection",       1),
     ("king-mongkut-university-technology-of-thonburi", "tire-x4hgu",                   1),
-    ("computervision-f2lah",                           "tire-detection-xum3o",          1),
+    ("computervision-f2lah",                           "tire-detection-xum3o",          4),
     ("testwheel",                                      "wheeltester",                   1),
 ]
 

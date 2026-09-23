@@ -29,6 +29,10 @@ DATASETS = [
         "path": os.path.join(BASE, "king-mongkut-university-technology-of-thonburi", "tire-x4hgu"),
         "map": {0: -1, 1: 1},  # None -> discard, Tire -> tire
     },
+    {
+        "path": os.path.join(BASE, "computervision-f2lah", "tire-detection-xum3o"),
+        "map": {0: -1, 1: 1},  # Jammed Tires -> discard (não é claramente água parada), Tires -> tire
+    },
 ]
 
 SPLITS = ["train", "valid", "test"]
