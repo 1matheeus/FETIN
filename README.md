@@ -459,4 +459,4 @@ python drone/testar_anonimizacao.py
 | Rander D. Lemos | [@RanderDLemos](https://github.com/RanderDLemos) |
 | Eduardo F. Guimarães | [@EduardoFGuimaraes](https://github.com/EduardoFGuimaraes) |
 | Matheus Borges Mariano | [@1matheeus](https://github.com/1matheeus) |
-| Matheus Reis | *GitHub a confirmar* |
+| Matheus Reis | [@MatheusReis27](https://github.com/MatheusReis27) |
