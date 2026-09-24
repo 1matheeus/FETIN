@@ -330,6 +330,16 @@ válida — nunca confiar em checagem feita no JS do cliente.
   Trabalho, junto com as fotos. O dashboard casa cada foco com sua foto pelo
   nome do arquivo e adiciona/atualiza os marcadores no mapa (só nesta sessão
   do navegador — para tornar permanente, substitua o CSV do repositório).
+- **Resolver ou remover um foco** — no popup de cada foco do mapa: **"Marcar
+  como resolvido"** (o marcador vira verde com um check, e o foco deixa de
+  contar no score do bairro e no KPI de focos ativos; dá para **Reabrir**) e
+  **"Remover"** (tira o foco do mapa; o botão **"Restaurar focos removidos"**
+  traz de volta, e importar o CSV de novo não ressuscita um foco removido).
+  ⚠️ Isso vale **só no navegador de quem clicou** (fica no `localStorage`):
+  a API só aceita `GET`/`POST` em `/deteccoes`, então ainda não há onde
+  gravar o status de forma compartilhada, e os dados originais nunca são
+  apagados. Para outras pessoas verem, o Worker precisaria de uma rota
+  `PATCH`/`DELETE` autenticada.
 - **Casos notificados** — lista paginada (20 por página) com busca, filtro
   por status e por bairro (dropdown — a API de vigilância traz 58+ bairros),
   cadastro de novos casos (com foto opcional do local), edição e exclusão, e
