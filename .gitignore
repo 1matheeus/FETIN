@@ -31,3 +31,6 @@ venv/
 # não devem ir para o repositório público
 screenshot_*.jpg
 dashboard/foco_*.jpg
+
+# IP do iPhone lembrado por iniciar_deteccao_gps.bat (específico de cada máquina/rede)
+.ultimo_ip_gps.txt
