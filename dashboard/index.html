@@ -1528,7 +1528,7 @@ function abrirLightboxCaso(id){
 function abrirLightboxFoco(id){
   const f = FOCOS.find(x=>x.id===id);
   if(!f) return;
-  if(f.foto){
+  if(f.foto && !f.fotoIndisponivel){
     abrirLightbox(f.foto, `${f.id} — foto real capturada na detecção (${f.tipo})`);
   } else {
     abrirLightbox(FOCO_IMG[f.tipo], `${f.id} — exemplo de detecção de ${f.tipo} pelo modelo YOLOv8 (imagem do dataset de treino)`);
@@ -2064,7 +2064,9 @@ function criarMarcadorFoco(f){
   const confPct = Math.round(f.confianca*100);
   const nivelConf = f.confianca>=0.8 ? "Alta" : (f.confianca>=0.7 ? "Média" : "Baixa");
   const corConf = f.confianca>=0.8 ? RISK_HEX.baixo : (f.confianca>=0.7 ? RISK_HEX.medio : RISK_HEX.alto);
-  const temFotoReal = !!f.foto;
+  // fotoIndisponivel: a URL da foto real já falhou uma vez (ex.: a API aponta
+  // uma foto que não existe no bucket) — cai direto no exemplo, sem tentar de novo.
+  const temFotoReal = !!f.foto && !f.fotoIndisponivel;
   const srcImagem = temFotoReal ? f.foto : FOCO_IMG[f.tipo];
   const textoImagem = temFotoReal ? "Ver foto do foco" : "Ver imagem de exemplo da detecção";
   const idEsc = escapeHTML(f.id);
@@ -2082,8 +2084,8 @@ function criarMarcadorFoco(f){
         <tr><td>Status</td><td><span class="status-pill status-${resolvido ? "resolvido" : "pendente"}">${resolvido ? "RESOLVIDO" : "PENDENTE"}</span></td></tr>
       </table>
       <div class="popup-image-link" onclick="abrirLightboxFoco('${idEsc}')">
-        <img src="${srcImagem}" alt="">
-        ${textoImagem}
+        <img src="${srcImagem}" data-exemplo="${FOCO_IMG[f.tipo] || ""}" alt="">
+        <span class="popup-image-texto">${textoImagem}</span>
       </div>
       <div class="foco-actions">
         ${resolvido
@@ -2168,6 +2170,22 @@ function atualizarBotaoRestaurarFocos(){
 // Fase de captura: o Leaflet bloqueia a propagação de cliques dentro do popup,
 // então um listener "normal" no #map nunca os veria.
 function initAcoesFoco(){
+  // Foto real do foco que não carrega (404 da API, bucket sem o arquivo, rede
+  // fora): troca pela imagem de exemplo em vez de deixar a imagem quebrada.
+  // O evento "error" não borbulha, por isso a captura no document.
+  document.addEventListener("error", e => {
+    const img = e.target;
+    if(!(img instanceof HTMLImageElement) || !img.dataset.exemplo || img.dataset.caiu) return;
+    img.dataset.caiu = "1";
+    img.src = img.dataset.exemplo;
+    const link = img.closest(".popup-image-link");
+    const texto = link && link.querySelector(".popup-image-texto");
+    if(texto) texto.textContent = "Ver imagem de exemplo (a foto real deste foco não está disponível)";
+    const card = img.closest(".popup-card");
+    const f = card && FOCOS.find(x => x.id === card.dataset.focoId);
+    if(f) f.fotoIndisponivel = true;
+  }, true);
+
   document.getElementById("map").addEventListener("click", e => {
     const btn = e.target.closest && e.target.closest(".foco-btn");
     if(!btn) return;
