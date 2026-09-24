@@ -20,6 +20,21 @@
 | mAP@50-95 | 64.8% | — |
 
 > Treinado com 6.749 imagens aéreas em 50 épocas usando YOLOv8, com 2 classes: `pool` e `tire`.
+> Este é o modelo `runs/drone_v1/`, o que `demo.py` e `drone/detectar_foco.py` carregam.
+
+### Retreinos em andamento (`drone_v2` e `drone_v3`)
+
+| Execução | Modelo | Dataset | Resultado (validação) |
+|----------|--------|---------|-----------------------|
+| `drone_v1` | YOLOv8n, 50 épocas | 6.749 imagens | mAP@50 **95.6%** — em uso |
+| `drone_v2` | YOLOv8s, até 80 épocas | ampliado (+ dataset de pneus `tire-detection-xum3o`) | parou por early stopping na época 45 (melhor: época 30) — mAP@50 **80.9%** (`pool` 91.2%, `tire` 70.6%), mAP@50-95 46.5% |
+| `drone_v3` | YOLOv8n, até 50 épocas, `patience=15` | ampliado | treino em andamento — sem métricas ainda |
+
+Os números do v2 **não são comparáveis** com os do v1: o conjunto de validação
+é outro (272 imagens / 1.044 objetos) e mais difícil — o principal ponto fraco
+é `pneu` (recall de ~55%). Por isso os scripts continuam usando o `drone_v1`
+até um retreino superar o atual num conjunto de validação comparável. Curvas,
+matriz de confusão e `args.yaml` de cada execução ficam em `runs/drone_v*/`.
 
 ---
 
@@ -80,9 +95,16 @@ FETIN/
 │       ├── train/ valid/ test/
 │       └── data.yaml
 ├── runs/
-│   └── drone_v1/
-│       └── weights/
-│           └── best.pt          ← Modelo treinado ⭐
+│   ├── drone_v1/
+│   │   └── weights/
+│   │       └── best.pt          ← Modelo em uso (mAP@50 95.6%) ⭐
+│   ├── drone_v2/                 ← Retreino YOLOv8s, dataset ampliado (ver Resultados)
+│   └── drone_v3/                 ← Retreino em andamento
+├── train.py                      ← Treino (YOLOv8, augmentações para vista aérea)
+├── download_datasets.py          ← Baixa os datasets do Roboflow
+├── unify_datasets.py             ← Unifica os datasets em datasets/unified/
+├── train_drone_v2.log / train_drone_v3.log   ← Logs dos retreinos
+├── .github/workflows/tests.yml   ← CI: testes de anonimização e do schema do banco
 ├── dashboard/
 │   ├── index.html                ← Painel web completo (login, mapa, casos, gráficos) ⭐
 │   ├── gerar_mapa.py              ← Gera o mapa Folium estático (mapa_aeroscan.html)
@@ -92,9 +114,10 @@ FETIN/
 │   └── marcadores_mapa_mvp.geojson
 ├── drone/
 │   ├── detectar_foco.py          ← Detecção persistente com localização (GPS/rede) ⭐
-│   ├── blur_lgpd.py               ← Anonimização de rosto antes de gravar qualquer foto
+│   ├── blur_lgpd.py               ← Anonimização de rosto (DNN) antes de gravar qualquer foto
+│   ├── instalar_modelo_dnn.py     ← Baixa os pesos do detector de rostos (obrigatório 1x por PC)
 │   └── testar_anonimizacao.py     ← Testes que travam o caminho de gravação de imagem
-├── api/                          ← API de vigilância epidemiológica (Cloudflare Worker + D1)
+├── api/                          ← API de vigilância epidemiológica (Cloudflare Worker + D1 + R2)
 │   ├── worker/index.js
 │   ├── db/schema.sql
 │   ├── dados/                     ← snapshot dos dados publicados (ver PROVENIENCIA.md)
@@ -137,7 +160,15 @@ source venv/bin/activate     # Linux/macOS
 
 # 3. Instalar dependências
 pip install -r requirements.txt
+
+# 4. Baixar os pesos do detector de rostos (uma vez por computador)
+python drone/instalar_modelo_dnn.py
 ```
+
+> ⚠️ **O passo 4 é obrigatório.** Os pesos do detector de rostos (~10 MB) não
+> vão para o git. Sem eles a anonimização falha fechada — de propósito — e
+> `drone/detectar_foco.py` e o `S` do `demo.py` **deixam de salvar fotos**
+> (o foco ainda entra no CSV, só sem imagem).
 
 ### Demo com câmera ao vivo
 
@@ -333,29 +364,30 @@ Isso cria `mapa_aeroscan.html` na raiz do projeto.
 | piscina-piloto/swimming-pool-detection | `pool` |
 | king-mongkut-.../tire-x4hgu | `tire` |
 | testwheel/wheeltester | `tire` |
+| computervision-f2lah/tire-detection-xum3o | `tire` (só usado nos retreinos v2/v3; a classe "Jammed Tires" é descartada por não ser claramente água parada) |
+
+> O dataset `test-aobpj/pool-u62qo` foi retirado de `download_datasets.py`: não
+> tem versão publicada no Roboflow, então não é baixável via API.
 
 ---
 
 ## 🔁 Como Retreinar
 
-```python
-from ultralytics import YOLO
-
-model = YOLO('yolov8n.pt')
-model.train(
-    data='datasets/unified/data.yaml',
-    epochs=50,
-    imgsz=640,
-    batch=16,
-    name='drone_v1',
-    flipud=0.5,
-    fliplr=0.5,
-    degrees=45,
-    scale=0.5,
-)
+```bash
+python download_datasets.py    # baixa os datasets (precisa de chave do Roboflow)
+python unify_datasets.py       # unifica em datasets/unified/ (train/valid/test)
+python train.py                # treina e grava em runs/<name>/
 ```
 
-> ⚠️ Requer GPU. Use o Google Colab (T4 gratuita) — tempo estimado: 30–40 minutos.
+O `train.py` usa YOLOv8n, 640 px, augmentações pensadas para vista aérea
+(rotação livre, flip vertical e horizontal) e `patience=15` (early stopping se
+a validação não melhorar por 15 épocas). O nome da execução (`name=`) e o
+dispositivo (`device="mps"`, para Apple Silicon) estão fixos no arquivo —
+ajuste-os para o seu ambiente antes de rodar (`device=0` para GPU NVIDIA).
+
+> ⚠️ Treinar exige GPU (ou Apple Silicon). Sem uma, use o Google Colab (T4
+> gratuita) — o v2 (YOLOv8s) levou ~7 h no Mac do Rander; o YOLOv8n é bem mais
+> rápido.
 
 ---
 
@@ -366,8 +398,9 @@ o `drone/detectar_foco.py` (foto do foco confirmado) quanto o `demo.py`
 (screenshot com a tecla `S`) chamam `anonimizar()` do `drone/blur_lgpd.py`
 imediatamente antes do `cv2.imwrite` — o frame original nunca chega ao disco.
 
-O comportamento é **falha fechada**: se a anonimização não puder rodar
-(OpenCV sem os cascades, por exemplo), a foto não é salva e o foco entra no
+O comportamento é **falha fechada**: se a anonimização não puder rodar (por
+exemplo, se os pesos do detector de rostos não foram baixados com
+`python drone/instalar_modelo_dnn.py`), a foto não é salva e o foco entra no
 CSV sem imagem. Perder a foto de um foco é um problema pequeno; publicar o
 rosto de um morador não é.
 
@@ -378,12 +411,15 @@ datas. Detalhes em [`api/README.md`](api/README.md).
 
 Três limites que vale declarar, porque a detecção de rosto não é perfeita:
 
-- O detector é Haar cascade frontal + perfil. Rosto muito pequeno (< 30 px),
-  de costas, ou sob ângulo fechado pode passar sem ser borrado.
+- O detector é uma rede neural (SSD sobre ResNet-10, `res10_300x300`), mais
+  robusta que o Haar cascade usado antes em rosto pequeno, ângulo fechado e
+  pouca luz — mas nenhum detector é perfeito: rosto muito pequeno, de costas
+  ou parcialmente coberto ainda pode passar sem ser borrado.
 - O borrão cobre rosto, não os demais identificadores que uma imagem aérea
   pode conter — placa de veículo, número de casa, correspondência à vista.
 - A verificação está travada por `drone/testar_anonimizacao.py`. Rode antes
-  de qualquer alteração no caminho de gravação de imagem:
+  de qualquer alteração no caminho de gravação de imagem (a CI do GitHub
+  Actions roda esse teste, e o do schema do banco, a cada push):
 
 ```bash
 python drone/testar_anonimizacao.py
@@ -399,7 +435,8 @@ python drone/testar_anonimizacao.py
 - [Folium](https://python-visualization.github.io/folium/) — Mapa estático gerado em Python
 - [Leaflet](https://leafletjs.com) + Leaflet.heat + Leaflet.markercluster — Mapa interativo do dashboard web
 - [d3-delaunay](https://github.com/d3/d3-delaunay) — Geração de territórios de bairro por Voronoi
-- [Cloudflare Workers](https://workers.cloudflare.com) + [D1](https://developers.cloudflare.com/d1/) — API de vigilância epidemiológica
+- [Cloudflare Workers](https://workers.cloudflare.com) + [D1](https://developers.cloudflare.com/d1/) + [R2](https://developers.cloudflare.com/r2/) — API de vigilância epidemiológica (R2 guarda as fotos das detecções)
+- [GitHub Actions](https://docs.github.com/actions) — CI dos testes de anonimização e do banco
 - [winsdk](https://pypi.org/project/winsdk/) / [pyobjc-framework-CoreLocation](https://pypi.org/project/pyobjc-framework-Cocoa/) — Localização por rede (Windows/macOS)
 - [Python 3.10+](https://python.org)
 

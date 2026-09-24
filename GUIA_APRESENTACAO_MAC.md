@@ -34,8 +34,13 @@ cd FETIN
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+python drone/instalar_modelo_dnn.py
 ```
 
+- `python drone/instalar_modelo_dnn.py` baixa os pesos do detector de rostos
+  (~10 MB, precisa de internet — faça em casa, não na feira). **Sem isso a
+  anonimização falha fechada e nenhuma foto é salva** — o foco entra no CSV,
+  mas sem imagem.
 - `source venv/bin/activate` é o equivalente do `venv\Scripts\activate` do
   Windows — precisa rodar isso toda vez que abrir um Terminal novo, antes
   dos comandos dos passos seguintes.
@@ -112,6 +117,7 @@ cd FETIN
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+python drone/instalar_modelo_dnn.py
 
 # no dia, depois de conectar o hotspot e ligar o GPS Tether Server
 source venv/bin/activate
